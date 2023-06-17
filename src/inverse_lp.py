@@ -1,15 +1,10 @@
 import abc
-
-import pulp
-import typing as tp
-import numpy as np
-from enum import Enum
-from src import simple_instance
 from abc import ABC
 
-class NormType(Enum):
-    L1 = 0,
-    LInfinity = 1
+import numpy as np
+import pulp
+
+from src import simple_instance
 
 
 class AbstractInverseLpSolver(ABC):
@@ -63,7 +58,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         b = list()
         c = instance.c
         u = np.array([.0 for _ in range(m)])
-        l = np.array([.0 for _ in range(m)])
+        l_ = np.array([.0 for _ in range(m)])
 
         for i in range(n):
             if b_mask[i]:
@@ -72,16 +67,16 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
 
         for j in range(m):
             if l_mask and l_mask[j]:
-                l[j] = instance.lower_bounds[j]
+                l_[j] = instance.lower_bounds[j]
                 u[j] = instance.lower_bounds[j] + 1.
             if u_mask and u_mask[j]:
-                l[j] = instance.upper_bounds[j] - 1.
+                l_[j] = instance.upper_bounds[j] - 1.
                 u[j] = instance.upper_bounds[j]
             if f_mask[j]:
-                l[j] = x0[j] - 1.
+                l_[j] = x0[j] - 1.
                 u[j] = x0[j] + 1.
 
-        return simple_instance.LpInstance(np.array(a), np.array(b), c, l, u)
+        return simple_instance.LpInstance(np.array(a), np.array(b), c, l_, u)
 
     def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
         if (instance.a.dot(x0) - instance.b < 0).any():
@@ -149,7 +144,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         inv_model.solve(pulp.PULP_CBC_CMD(msg=False))
         dual_inv_answer = np.array([i.pi for _, i in inv_model.constraints.items()][:b_.shape[0]])
 
-        return self.__get_d(a_, instance.c, dual_inv_answer, x0)
+        return self.__get_d(a_, instance.c, dual_inv_answer)
 
     @staticmethod
     def __create_inv_model(a, b, c, x0, name: str = "UNNAMED"):
@@ -173,7 +168,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return model
 
     @staticmethod
-    def __get_d(a, c, dual_inv_answer: np.array, x0: np.array):
+    def __get_d(a, c, dual_inv_answer: np.array):
         c_pi = c - a.transpose().dot(dual_inv_answer)
         d = c.copy()
         for j in range(len(d)):

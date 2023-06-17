@@ -1,7 +1,7 @@
 import numpy as np
-import pulp
-from src import simple_instance
+
 from src import inverse_lp
+from src import simple_instance
 
 
 def test1():
