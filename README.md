@@ -4,8 +4,8 @@
 
 - src - весь код
 
-1. simple_instance - обертка хранения задачи ЗЛП.
-2. inverse_instance - классы, решающие задачу INV.
+  1. simple_instance - обертка хранения задачи ЗЛП.
+  2. inverse_instance - классы, решающие задачу INV.
 
 - test - тесты
 
