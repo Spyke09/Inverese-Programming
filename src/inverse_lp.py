@@ -79,6 +79,8 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         return simple_instance.LpInstance(np.array(a), np.array(b), c, l_, u)
 
     def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
+        if weights is None:
+            weights = np.full(instance.c.shape, 1.)
         if (instance.a.dot(x0) - instance.b < 0).any():
             raise ValueError("sum(a_ij x0_j) - b_i contains elements < 0")
         model = simple_instance.create_pulp_model(instance)
@@ -128,6 +130,8 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return np.array(a_), np.array(b_)
 
     def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
+        if weights is None:
+            weights = np.full(instance.c.shape, 1.)
         if (instance.a.dot(x0) - instance.b < 0).any():
             raise ValueError("sum(a_ij x0_j) - b_i contains elements < 0")
         model = simple_instance.create_pulp_model(instance)
