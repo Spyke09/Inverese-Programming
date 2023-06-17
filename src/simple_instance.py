@@ -4,17 +4,16 @@ import typing as tp
 
 
 class LpInstance:
-    def __init__(self,
-                 a: np.array,
-                 b: np.array,
-                 c: np.array,
-                 lower_bounds: tp.Optional[np.array] = None,
-                 upper_bounds: tp.Optional[np.array] = None):
-        self._c: np.array = c
-        self._a: np.array = a
-        self._b: np.array = b
-        self._upper_bounds: tp.Optional[np.array] = upper_bounds
-        self._lower_bounds: tp.Optional[np.array] = lower_bounds
+    def __init__(self, a, b, c, lower_bounds=None, upper_bounds=None):
+        self._c: np.array = np.array(c)
+        self._a: np.array = np.array(a)
+        self._b: np.array = np.array(b)
+        self._upper_bounds: tp.Optional[np.array] = None
+        self._lower_bounds: tp.Optional[np.array] = None
+        if upper_bounds is not None:
+            self._upper_bounds = np.array(upper_bounds)
+        if lower_bounds is not None:
+            self._lower_bounds = np.array(lower_bounds)
 
     @property
     def a(self) -> np.array:
