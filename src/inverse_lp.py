@@ -27,31 +27,31 @@ class AbstractInverseLpSolver(ABC):
         raise NotImplementedError
 
     @staticmethod
-    def _find_binding_constraints(instance: simple_instance.LpInstance, answer: np.array):
+    def _find_binding_constraints(instance: simple_instance.LpInstance, x0: np.array):
         """
         Нахождение масок для множеств B, L, U, F (страница 16).
 
         :param instance: экземляр LpInstance
-        :param answer: допустимое значение ЗЛП (на минимум) `instance`.
+        :param x0: допустимое значение ЗЛП (на минимум) `instance`.
         :return: Маски для элементов из B, L, U, F (страница 16)
         """
-        diff_for_b = instance.a @ answer - instance.b
+        diff_for_b = instance.a @ x0 - instance.b
         idx_mask_b = [is_zero(i) for i in diff_for_b]
 
         t1, t2 = (instance.lower_bounds is not None), (instance.upper_bounds is not None)
         if t1 and not t2:
-            diff_for_l = answer - instance.lower_bounds
+            diff_for_l = x0 - instance.lower_bounds
             idx_mask_l = [is_zero(i) for i in diff_for_l]
             idx_mask_f = [not is_zero(i) for i in diff_for_l]
             return idx_mask_b, idx_mask_f, idx_mask_l, None
         elif t2 and not t1:
-            diff_for_u = answer - instance.upper_bounds
+            diff_for_u = x0 - instance.upper_bounds
             idx_mask_u = [is_zero(i) for i in diff_for_u]
             idx_mask_f = [not is_zero(i) for i in diff_for_u]
             return idx_mask_b, idx_mask_f, None, idx_mask_u
         elif t1 and t2:
-            diff_for_l = answer - instance.lower_bounds
-            diff_for_u = answer - instance.upper_bounds
+            diff_for_l = x0 - instance.lower_bounds
+            diff_for_u = x0 - instance.upper_bounds
             idx_mask_l = [is_zero(i) for i in diff_for_l]
             idx_mask_u = [is_zero(i) for i in diff_for_u]
             idx_mask_f = [(not idx_mask_l[i]) and (not idx_mask_u[i]) for i in range(len(idx_mask_u))]
@@ -154,7 +154,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         # x0 должен быть лежать в допустимом множестве решений.
         if (instance.a.dot(x0) - instance.b < 0).any() \
                 or (instance.lower_bounds is not None) and (x0 - instance.lower_bounds < 0).any()\
-                or (instance.upper_bounds is not None) and(x0 - instance.upper_bounds > 0).any():
+                or (instance.upper_bounds is not None) and (x0 - instance.upper_bounds > 0).any():
             raise ValueError("x_0 is not feasible vector")
 
         # формируем модель pulp для решения ЗЛП.
