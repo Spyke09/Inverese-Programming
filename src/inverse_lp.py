@@ -32,7 +32,7 @@ class AbstractInverseLpSolver(ABC):
         Нахождение масок для множеств B, L, U, F (страница 16).
 
         :param instance: экземляр LpInstance
-        :param answer: оптимальное значение ЗЛП (на минимум) `instance`.
+        :param answer: допустимое значение ЗЛП (на минимум) `instance`.
         :return: Маски для элементов из B, L, U, F (страница 16)
         """
         diff_for_b = instance.a @ answer - instance.b
@@ -165,11 +165,8 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         if status != 1:
             raise ValueError("Status after model solving is False")
 
-        # сохраняем полученны оптимальный вектор x.
-        answer = np.array([i.varValue for i in model.variables()])
-
         # формируем маски для формирования экземпляра INV
-        masks = super()._find_binding_constraints(instance, answer)
+        masks = super()._find_binding_constraints(instance, x0)
 
         # формируем экземпляр INV
         inv_instance = self.__create_inv_lp_instance(instance, masks, x0)
@@ -266,8 +263,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
             raise ValueError("Status after model solving is False")
 
         # получение масок и формирование нового экземпляра без unbinding ограничений
-        answer = np.array([i.varValue for i in model.variables()])
-        masks = super()._find_binding_constraints(instance, answer)
+        masks = super()._find_binding_constraints(instance, x0)
         binding_inst = self.__get_binding_instance(instance, masks[0])
 
         # создание модели pulp INV

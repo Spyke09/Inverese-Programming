@@ -15,7 +15,7 @@ def test1():
     b = np.array([2., 4., -20])
     x0 = np.array([-3.1, 5.3])
     # доп. ограничения
-    l, u = [-9., 5.], [-3., 6.]
+    l, u = [-9., 5.], [-3., 13.]
     inst = simple_instance.LpInstance(a, b, c, l, u)
 
     solver = inverse_lp.InverseLpSolverL1()
