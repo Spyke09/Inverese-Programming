@@ -73,12 +73,13 @@ def test3():
         raise ValueError("Status after model solving is False")
 
     x0 = simple_instance.get_x_after_model_solve(model_2)
-    print("Минимальное значение функции =  ", x.dot(sp.lpp.c))
+    print("Минимальное значение функции = ", x.dot(sp.lpp.c))
     print("Значение функции при x0 = ", x0.dot(sp.lpp.c))
 
     solver = inverse_lp.InverseLpSolverL1()
 
     d = solver.solve(sp.lpp, x0)
+    print("Значение нормы = ", np.absolute(d - sp.lpp.c).sum(), "\n")
     print("Значение новой ЗЛП при новом d = d * x0 = ", d.dot(x0))
 
     lpp = simple_instance.LpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
@@ -92,7 +93,7 @@ def test3():
     print("Минмальное значение новой ЗЛП = ", d.dot(x1))
 
     d1 = solver.solve(lpp, x0)
-    print("Значение нормы после повторной попытки найти нужное d = ", np.absolute(d - lpp.c).sum(), "\n")
+    print("Значение нормы после повторной попытки найти нужное d = ", np.absolute(d1 - lpp.c).sum(), "\n")
 
 
 test1()
