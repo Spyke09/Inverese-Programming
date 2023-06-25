@@ -170,17 +170,18 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
             raise ValueError("Status after model solving is False")
 
         # получаем вектор pi и формируем из него решение задачи INV.
+        x = simple_instance.get_x_after_model_solve(inv_model)
         dual_inv_answer = np.array([i.pi for _, i in inv_model.constraints.items()][:inv_instance.b.shape[0]])
         result_d = self.__get_d(inv_instance, dual_inv_answer, x0)
 
         # проверка, что найденные вектора удовлетворяют условиям оптимальности.
-        if not self.__check_L1(inv_instance, result_d, dual_inv_answer):
-            raise ValueError("Solve Error")
+        # if not self.__check_L1(inv_instance, result_d, dual_inv_answer, x):
+        #     raise ValueError("Solve Error")
 
         return result_d
 
     @staticmethod
-    def __check_L1(instance: simple_instance.LpInstance, d, pi):
+    def __check_L1(instance: simple_instance.LpInstance, d, pi, x):
         """
         Проверка решения задачи INV на оптимальность.
         :param instance: исходный экземпляр

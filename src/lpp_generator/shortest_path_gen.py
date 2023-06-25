@@ -8,7 +8,18 @@ from src.structures import simple_instance
 
 
 class LPPShortestPath:
+    """
+    Генератор инстансов ЗЛП на основе задачи о поиске кратчайшего пути в графе.
+    Граф задается здесь же случайным образом.
+    """
+
     def __init__(self, n, k):
+        """
+        :param n: число вершин графа
+        :param k: кол-во итераций добавления ребер
+
+        TODO: обобщить код и для мультиграфов.
+        """
         self._graph: nx.DiGraph = nx.DiGraph()
 
         for i in range(k):

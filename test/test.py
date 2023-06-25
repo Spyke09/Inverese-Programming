@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import pulp
 
@@ -53,6 +55,7 @@ def test3():
         raise ValueError("Status after model solving is False")
 
     x = simple_instance.get_x_after_model_solve(model)
+
     ban = np.full((1, x.shape[0]), 0)
     ban[0, list(x).index(0)] = 1
 
@@ -71,8 +74,13 @@ def test3():
     print("answ x0 = ", x0.dot(sp.lpp.c))
 
     solver = inverse_lp.InverseLpSolverL1()
-    d = solver.solve(simple_instance.LpInstance(sp.lpp.a, sp.lpp.b, sp.lpp.c), x0)
-    print("Result", d, ", norm", np.absolute(d - sp.lpp.c).sum())
+
+    d = solver.solve(sp.lpp, x0)
+    print("Result", "[", ", ".join([str(i) for i in d]), "], norm", np.absolute(d - sp.lpp.c).sum())
+
+    lpp = simple_instance.LpInstance(sp.lpp.a, sp.lpp.b, d)
+    d0 = solver.solve(lpp, x0)
+    print("Result", "[", ", ".join([str(i) for i in d]), "], norm", np.absolute(d - lpp.c).sum())
 
 
 # test1()

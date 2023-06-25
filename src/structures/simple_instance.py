@@ -59,7 +59,6 @@ def create_pulp_model(instance: LpInstance, name: str = "UNNAMED"):
     x = list()
     t1, t2 = instance.lower_bounds is None, instance.upper_bounds is None
     for i in range(m):
-        x_i = None
         if t1 and t2:
             x_i = pulp.LpVariable(f"x_{i}")
         elif not t1 and t2:
