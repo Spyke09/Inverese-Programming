@@ -4,7 +4,7 @@ from abc import ABC
 import numpy as np
 import pulp
 
-from src import simple_instance
+from src.structures import simple_instance
 
 
 def is_zero(x):
@@ -57,7 +57,7 @@ class AbstractInverseLpSolver(ABC):
             idx_mask_f = [(not idx_mask_l[i]) and (not idx_mask_u[i]) for i in range(len(idx_mask_u))]
             return idx_mask_b, idx_mask_f, idx_mask_l, idx_mask_u
         else:
-            return idx_mask_b, [True for _ in idx_mask_b], None, None
+            return idx_mask_b, [True for _ in range(instance.c.shape[0])], None, None
 
 
 class InverseLpSolverL1(AbstractInverseLpSolver):
@@ -157,14 +157,6 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
                 or (instance.upper_bounds is not None) and (x0 - instance.upper_bounds > 0).any():
             raise ValueError("x_0 is not feasible vector")
 
-        # формируем модель pulp для решения ЗЛП.
-        model = simple_instance.create_pulp_model(instance)
-
-        # Решение модели и проверка того, что решение найдено
-        status = model.solve(pulp.PULP_CBC_CMD(msg=False))
-        if status != 1:
-            raise ValueError("Status after model solving is False")
-
         # формируем маски для формирования экземпляра INV
         masks = super()._find_binding_constraints(instance, x0)
 
@@ -255,12 +247,6 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         # проверка на допустимость x0
         if (instance.a.dot(x0) - instance.b < 0).any():
             raise ValueError("x_0 is not feasible vector")
-        model = simple_instance.create_pulp_model(instance)
-
-        # решение и проверка того, что нашлось решение исходной задачи.
-        status = model.solve(pulp.PULP_CBC_CMD(msg=False))
-        if status != 1:
-            raise ValueError("Status after model solving is False")
 
         # получение масок и формирование нового экземпляра без unbinding ограничений
         masks = super()._find_binding_constraints(instance, x0)

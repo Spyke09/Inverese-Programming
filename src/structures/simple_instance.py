@@ -56,21 +56,32 @@ def create_pulp_model(instance: LpInstance, name: str = "UNNAMED"):
         n, m = instance.a.shape
 
     model = pulp.LpProblem(name, pulp.LpMinimize)
-    x = pulp.LpVariable.dicts("x", [i for i in range(m)])
+    x = list()
+    t1, t2 = instance.lower_bounds is None, instance.upper_bounds is None
+    for i in range(m):
+        x_i = None
+        if t1 and t2:
+            x_i = pulp.LpVariable(f"x_{i}")
+        elif not t1 and t2:
+            x_i = pulp.LpVariable(f"x_{i}", lowBound=instance.lower_bounds[i])
+        elif t1 and not t2:
+            x_i = pulp.LpVariable(f"x_{i}", upBound=instance.upper_bounds[i])
+        else:
+            x_i = pulp.LpVariable(f"x_{i}", lowBound=instance.lower_bounds[i], upBound=instance.upper_bounds[i])
+
+        x.append(x_i)
     # целевая функция
     model += pulp.lpSum([instance.c[i] * x[i] for i in range(m)])
     # ограницения из матрицы a
     for i in range(n):
         model += (pulp.lpSum([x[j] * instance.a[i, j] for j in range(m)]) >= instance.b[i])
 
-    # ограничения сверху
-    if instance.upper_bounds is not None:
-        for i in range(m):
-            model += (x[i] <= instance.upper_bounds[i])
-
-    # ограничения снизу
-    if instance.lower_bounds is not None:
-        for i in range(m):
-            model += (x[i] >= instance.lower_bounds[i])
-
     return model
+
+
+def get_x_after_model_solve(model):
+    x = np.full(len(model.variables()), 0)
+    for v in model.variables():
+        x[int(v.name.replace("x_", ''))] = v.varValue
+    return x
+
