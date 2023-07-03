@@ -25,6 +25,9 @@ class LPPShortestPath:
         for i in range(k):
             for u in range(n):
                 v = random.randint(0, n - 1)
+                if v == u:
+                    v += -1 if u == n - 1 else 1
+
                 if not self._graph.has_edge(u, v) and u != v:
                     self._graph.add_edge(u, v)
                     self._graph[u][v]["weight"] = random.randint(0, 10*n)

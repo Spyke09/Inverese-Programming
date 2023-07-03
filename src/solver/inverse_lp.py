@@ -1,10 +1,13 @@
 import abc
-from abc import ABC
 
 import numpy as np
 import pulp
 
+import src.lib.copt_pulp as copt_pulp
 from src.structures import simple_instance
+
+MESSAGES = False
+SOLVER = copt_pulp.COPT_DLL(msg=MESSAGES)
 
 
 def is_zero(x):
@@ -17,7 +20,7 @@ def is_zero(x):
     return abs(x) < 10e-7
 
 
-class AbstractInverseLpSolver(ABC):
+class AbstractInverseLpSolver(abc.ABC):
     """
     Абстрактый класс солвера.
     Все наследники должны реализовывать метод `solve`.
@@ -165,7 +168,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         inv_model = simple_instance.create_pulp_model(inv_instance)
 
         # решаем и проверяем что экземпляра INV есть решение
-        inv_status = inv_model.solve(pulp.PULP_CBC_CMD(msg=False))
+        inv_status = inv_model.solve(SOLVER)
         if inv_status != 1:
             raise ValueError("Status after model solving is False")
 
@@ -255,7 +258,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         # создание модели pulp INV
         inv_model = self.__create_inv_model(binding_inst, x0, weights)
         # решение модели выше и проверка того, нашлось ли решение
-        inv_model.solve(pulp.PULP_CBC_CMD(msg=False))
+        inv_model.solve(SOLVER)
         inv_model_status = inv_model.status
         if inv_model_status != 1:
             raise ValueError("Status after model solving is False")

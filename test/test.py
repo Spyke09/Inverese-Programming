@@ -1,11 +1,9 @@
-import random
-
 import numpy as np
 import pulp
 
+from src.lpp_generator import shortest_path_gen
 from src.solver import inverse_lp
 from src.structures import simple_instance
-from src.lpp_generator import shortest_path_gen
 
 
 def test1():
@@ -49,11 +47,12 @@ def test2():
 
 def test3():
     print("Test 3")
-    sp = shortest_path_gen.LPPShortestPath(10, 10)
+    sp = shortest_path_gen.LPPShortestPath(100, 10)
 
     model = simple_instance.create_pulp_model(sp.lpp)
 
-    status = model.solve(pulp.PULP_CBC_CMD(msg=False))
+    status = model.solve(inverse_lp.SOLVER)
+
     if status != 1:
         raise ValueError("Status after model solving is False")
 
