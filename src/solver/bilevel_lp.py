@@ -1,3 +1,4 @@
+import numpy as np
 import pulp
 
 from src.config import config
@@ -6,7 +7,7 @@ from src.structures import bilevel_instance, simple_instance
 
 class BilevelLpSolver:
     @staticmethod
-    def _create_MPEC_model(inst, x0, name="UNNAMED", big_m=1000000000):
+    def _create_MPEC_model(inst, x0, name="UNNAMED", big_m=10000000):
         """
         Создание модели MPEC.
 
@@ -33,23 +34,23 @@ class BilevelLpSolver:
 
         # ограничения transpose(A)y >= c
         for j in range(m):
-            model += (pulp.lpSum([y[j] * inst.a[i, j] for i in range(n)]) >= c[j])
+            model += (pulp.lpSum([y[i] * inst.a[i, j] for i in range(n)]) >= c[j])
 
         # ограничения Bb = ~b
-        assert inst.big_b.shape[1] == inst.b.shape[0]
+        assert inst.big_b.shape[0] == inst.b.shape[0]
         for i in range(inst.big_b.shape[0]):
             model += (pulp.lpSum([b[j] * inst.big_b[i, j] for j in range(inst.big_b.shape[1])]) == inst.b[i])
 
         # ограничения Cc = ~c
-        assert inst.big_c.shape[1] == inst.c.shape[0]
-        for i in range(inst.big_b.shape[0]):
+        assert inst.big_c.shape[0] == inst.c.shape[0]
+        for i in range(inst.big_c.shape[0]):
             model += (pulp.lpSum([c[j] * inst.big_c[i, j] for j in range(inst.big_c.shape[1])]) == inst.c[i])
 
         # ограничения KKT
         # (x_j * (a_j * y_j - c_j) <=> x_j <= kkt_j * M and (a_j * y_j - c_j) <= (1 - kkt_j) * M
         for j in range(m):
             model += (x[j] <= kkt[j] * big_m)
-            model += (pulp.lpSum([y[j] * inst.a[i, j] for i in range(n)] + [c[j], -big_m]) <= -big_m * kkt[j])
+            model += (pulp.lpSum([y[i] * inst.a[i, j] for i in range(n)]) - c[j] <= big_m * (1 - kkt[j]))
 
         # это для целевой функции
         for j in range(m):
@@ -64,6 +65,9 @@ class BilevelLpSolver:
         model = self._create_MPEC_model(inst, x0)
         model.solve(config.SOLVER)
 
+        if model.status != 1:
+            raise ValueError("Status after model solving is False")
+
         x, b, c = list(), list(), list()
         for v in model.variables():
             if "x_" in v.name:
@@ -73,4 +77,4 @@ class BilevelLpSolver:
             if "c_" in v.name:
                 c.append(v.varValue)
 
-        return x, b, c
+        return np.array(x), np.array(b), np.array(c)

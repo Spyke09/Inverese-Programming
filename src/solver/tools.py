@@ -56,7 +56,8 @@ def get_x_after_model_solve(inst):
     if status != 1:
         raise ValueError("Status after model solving is False")
 
-    x = np.full(len(model.variables()), 0)
+    x = list()
     for v in model.variables():
-        x[int(v.name.replace("x_", ''))] = v.varValue
-    return x
+        if "x_" in v.name:
+            x.append(v.varValue)
+    return np.array(x)
