@@ -8,7 +8,7 @@ from src.lpp_generator.random_s_t_graph import RandomSTGraph
 from src.structures import simple_instance
 
 
-class LPPShortestPath:
+class LPPMinCostFlow:
     """
     Генератор инстансов ЗЛП на основе задачи о поиске кратчайшего пути в графе.
     Граф задается здесь же случайным образом.
@@ -28,7 +28,8 @@ class LPPShortestPath:
         for v in range(n):
             for u in range(n):
                 if self._graph.has_edge(v, u):
-                    self._graph[v][u]["weight"] = random.randint(0, 10 * n)
+                    self._graph[v][u]["capacity"] = random.randint(0, 10 * n)
+                    self._graph[v][u]["cost"] = random.randint(-10 * n, 10 * n)
 
         # кодирование ребер
         self._edge_encoder = dict()
@@ -43,35 +44,31 @@ class LPPShortestPath:
 
     def _init_lpp(self) -> simple_instance.InvLpInstance:
         s, t = self._s, self._t
-        n, m = self._n_nodes, self._n_edges
-        a = np.full((n, m), 0.0)
+        a = np.full((self._n_nodes, self._n_edges), 0.0)
 
-        # ограничения равенства из матрицы А
-        for u, v in self._graph.edges:
-            a[u][self._edge_encoder[u, v]] = 1.0
+        for v in range(self._n_nodes):
+            if v != t:
+                for w in self._graph.nodes:
+                    if self._graph.has_edge(v, w):
+                        a[v][self._edge_encoder[v, w]] = 1.0
+                    if self._graph.has_edge(w, v):
+                        a[v][self._edge_encoder[w, v]] = -1.0
 
-        for v, u in self._graph.edges:
-            a[u][self._edge_encoder[v, u]] = -1.0
-
-        # правые части ограничений в матрице А
         b = np.full(self._n_nodes, 0.0)
-        b[s] = 1.0
-        b[t] = -1.0
+        b[s] = random.randint(0, 10 * self._n_nodes)
 
-        # вектор стоимостей
-        c = np.full(m, 0.0)
+        # вектор стоимостей ребер
+        c = np.full(self._n_edges, 0.0)
         for v, u in self._graph.edges:
-            c[self._edge_encoder[v, u]] = self._graph[v][u]["weight"]
+            c[self._edge_encoder[v, u]] = self._graph[v][u]["cost"]
 
-        return simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.Equal, np.full(m, 0.0), np.full(m, 1.0))
+        # нижние и верхние границы переменных
+        low_b = np.full(self._n_edges, 0.0)
+        up_b = np.full(self._n_edges, 0.0)
+        for v, u in self._graph.edges:
+            up_b[self._edge_encoder[v, u]] = self._graph[v][u]["capacity"]
 
-    @property
-    def start(self):
-        return self._s
-
-    @property
-    def finish(self):
-        return self._t
+        return simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.Equal, low_b, up_b)
 
     def draw_graph(self):
         pos = nx.random_layout(self._graph)
@@ -84,10 +81,18 @@ class LPPShortestPath:
         nx.draw_networkx_edge_labels(
             self._graph,
             pos,
-            edge_labels={(u, v): self._graph[u][v]["weight"] for u, v in self._graph.edges},
+            edge_labels={(u, v): self._graph[u][v]["capacity"] for u, v in self._graph.edges},
         )
         plt.show()
 
     @property
     def edge_decoder(self):
         return self._edge_decoder
+
+    @property
+    def source(self):
+        return self._s
+
+    @property
+    def sink(self):
+        return self._t

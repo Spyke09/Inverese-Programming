@@ -2,12 +2,9 @@ import abc
 
 import numpy as np
 import pulp
-
-import src.lib.copt_pulp as copt_pulp
+from src.solver import tools
+from src.config import config
 from src.structures import simple_instance
-
-MESSAGES = False
-SOLVER = copt_pulp.COPT_DLL(msg=MESSAGES)
 
 
 def is_zero(x):
@@ -26,15 +23,15 @@ class AbstractInverseLpSolver(abc.ABC):
     Все наследники должны реализовывать метод `solve`.
     """
     @abc.abstractmethod
-    def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         raise NotImplementedError
 
     @staticmethod
-    def _find_binding_constraints(instance: simple_instance.LpInstance, x0: np.array):
+    def _find_binding_constraints(instance: simple_instance.InvLpInstance, x0: np.array):
         """
         Нахождение масок для множеств B, L, U, F (страница 16).
 
-        :param instance: экземляр LpInstance
+        :param instance: экземляр InvLpInstance
         :param x0: допустимое значение ЗЛП (на минимум) `instance`.
         :return: Маски для элементов из B, L, U, F (страница 16)
         """
@@ -74,11 +71,11 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
     """
 
     @staticmethod
-    def __get_d(instance: simple_instance.LpInstance, dual_inv_answer: np.array, x0: np.array):
+    def __get_d(instance: simple_instance.InvLpInstance, dual_inv_answer: np.array, x0: np.array):
         """
         Формирование результирующего вектора `d`.
 
-        :param instance: экземляр LpInstance
+        :param instance: экземляр InvLpInstance
         :param dual_inv_answer: в статье это pi - оптимальные значения двойственных переменных.
         :param x0: заданный вектор x0 задачи INV.
         :return: вектор 'd'
@@ -98,7 +95,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __create_inv_lp_instance(instance: simple_instance.LpInstance, masks, x0):
+    def __create_inv_lp_instance(instance: simple_instance.InvLpInstance, masks, x0):
         """
         Формирование экземпляра задачи обратного программирования.
 
@@ -137,9 +134,9 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
                 l_[j] = x0[j] - 1.
                 u[j] = x0[j] + 1.
 
-        return simple_instance.LpInstance(np.array(a), np.array(b), c, l_, u)
+        return simple_instance.InvLpInstance(np.array(a), np.array(b), c, instance.sign, l_, u)
 
-    def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         """
         Формирования и решение задачи INV.
 
@@ -155,9 +152,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
             raise ValueError("Algorithm with `weights` isn't implemented")
 
         # x0 должен быть лежать в допустимом множестве решений.
-        if (instance.a.dot(x0) - instance.b < 0).any() \
-                or (instance.lower_bounds is not None) and (x0 - instance.lower_bounds < 0).any()\
-                or (instance.upper_bounds is not None) and (x0 - instance.upper_bounds > 0).any():
+        if not instance.check_feasible(x0):
             raise ValueError("x_0 is not feasible vector")
 
         # формируем маски для формирования экземпляра INV
@@ -165,10 +160,10 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
 
         # формируем экземпляр INV
         inv_instance = self.__create_inv_lp_instance(instance, masks, x0)
-        inv_model = simple_instance.create_pulp_model(inv_instance)
+        inv_model = tools.create_pulp_model_from_inv_lp_instance(inv_instance)
 
         # решаем и проверяем что экземпляра INV есть решение
-        inv_status = inv_model.solve(SOLVER)
+        inv_status = inv_model.solve(config.SOLVER)
         if inv_status != 1:
             raise ValueError("Status after model solving is False")
 
@@ -183,7 +178,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         return result_d
 
     @staticmethod
-    def __check_L1(instance: simple_instance.LpInstance, d, pi):
+    def __check_L1(instance: simple_instance.InvLpInstance, d, pi):
         """
         Проверка решения задачи INV на оптимальность.
         :param instance: исходный экземпляр
@@ -208,7 +203,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
     """
 
     @staticmethod
-    def __get_binding_instance(instance: simple_instance.LpInstance, b_mask):
+    def __get_binding_instance(instance: simple_instance.InvLpInstance, b_mask):
         """
         Получение нового экземпляра путем избавления от unbinding ограничений в исходном.
         :param instance: исходный экземпляр ЗЛП.
@@ -228,9 +223,9 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
             if b_mask[i]:
                 a_.append(instance.a[i])
                 b_.append(instance.b[i])
-        return simple_instance.LpInstance(np.array(a_), np.array(b_), instance.c)
+        return simple_instance.InvLpInstance(np.array(a_), np.array(b_), instance.c, instance.sign)
 
-    def solve(self, instance: simple_instance.LpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         """
         Формирования и решение задачи INV.
 
@@ -248,7 +243,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
             weights = np.full(instance.c.shape, 1.)
 
         # проверка на допустимость x0
-        if (instance.a.dot(x0) - instance.b < 0).any():
+        if not instance.check_feasible(x0):
             raise ValueError("x_0 is not feasible vector")
 
         # получение масок и формирование нового экземпляра без unbinding ограничений
@@ -258,7 +253,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         # создание модели pulp INV
         inv_model = self.__create_inv_model(binding_inst, x0, weights)
         # решение модели выше и проверка того, нашлось ли решение
-        inv_model.solve(SOLVER)
+        inv_model.solve(config.SOLVER)
         inv_model_status = inv_model.status
         if inv_model_status != 1:
             raise ValueError("Status after model solving is False")
@@ -275,7 +270,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __create_inv_model(binding_inst: simple_instance.LpInstance, x0, weights, name: str = "UNNAMED"):
+    def __create_inv_model(binding_inst: simple_instance.InvLpInstance, x0, weights, name: str = "UNNAMED"):
         """
         Создание модели pulp задачи INV. Все по формулам из стр. 24.
 
@@ -316,11 +311,11 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return model
 
     @staticmethod
-    def __get_d(instance: simple_instance.LpInstance, dual_inv_answer: np.array):
+    def __get_d(instance: simple_instance.InvLpInstance, dual_inv_answer: np.array):
         """
         Формирование результирующего вектора `d`.
 
-        :param instance: экземляр LpInstance
+        :param instance: экземляр InvLpInstance
         :param dual_inv_answer: в статье это pi - оптимальные значения двойственных переменных.
         :return: вектор 'd'
         """
@@ -334,7 +329,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __check_LInfinity(instance: simple_instance.LpInstance, pi, d):
+    def __check_LInfinity(instance: simple_instance.InvLpInstance, pi, d):
         """
         Проверка решения задачи INV на оптимальность.
 

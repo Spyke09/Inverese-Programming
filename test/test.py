@@ -1,8 +1,8 @@
 import numpy as np
-import pulp
 
+from src.lpp_generator import min_cost_flow_gen
 from src.lpp_generator import shortest_path_gen
-from src.solver import inverse_lp
+from src.solver import inverse_lp, tools
 from src.structures import simple_instance
 
 
@@ -19,7 +19,7 @@ def test1():
     x0 = np.array([-3.1, 5.3])
     # доп. ограничения
     l, u = [-9., 5.], [-3., 14.]
-    inst = simple_instance.LpInstance(a, b, c, l, u)
+    inst = simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.MoreE, l, u)
 
     solver = inverse_lp.InverseLpSolverL1()
     d = solver.solve(inst, x0)
@@ -36,7 +36,7 @@ def test2():
     b = np.array([2., 4., -20])
     x0 = np.array([-3.1, 5.3])
 
-    inst = simple_instance.LpInstance(a, b, c)
+    inst = simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.MoreE)
 
     solver = inverse_lp.InverseLpSolverLInfinity()
     # Весовая функция
@@ -48,15 +48,7 @@ def test2():
 def test3():
     print("Test 3")
     sp = shortest_path_gen.LPPShortestPath(100, 10)
-
-    model = simple_instance.create_pulp_model(sp.lpp)
-
-    status = model.solve(inverse_lp.SOLVER)
-
-    if status != 1:
-        raise ValueError("Status after model solving is False")
-
-    x = simple_instance.get_x_after_model_solve(model)
+    x = tools.get_x_after_model_solve(sp.lpp)
 
     ban = np.full((1, x.shape[0]), 0)
     ban[0, list(x).index(0)] = 1
@@ -64,14 +56,9 @@ def test3():
     new_a = np.concatenate((sp.lpp.a, ban), axis=0)
     new_b = np.concatenate((sp.lpp.b, np.array([1])))
 
-    inst_2 = simple_instance.LpInstance(new_a, new_b, sp.lpp.c, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
-    model_2 = simple_instance.create_pulp_model(inst_2)
+    inst_2 = simple_instance.InvLpInstance(new_a, new_b, sp.lpp.c, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    x0 = tools.get_x_after_model_solve(inst_2)
 
-    status_2 = model_2.solve(pulp.PULP_CBC_CMD(msg=False))
-    if status_2 != 1:
-        raise ValueError("Status after model solving is False")
-
-    x0 = simple_instance.get_x_after_model_solve(model_2)
     print("Минимальное значение функции = ", x.dot(sp.lpp.c))
     print("Значение функции при x0 = ", x0.dot(sp.lpp.c))
 
@@ -81,20 +68,45 @@ def test3():
     print("Значение нормы = ", np.absolute(d - sp.lpp.c).sum(), "\n")
     print("Значение новой ЗЛП при новом d = d * x0 = ", d.dot(x0))
 
-    lpp = simple_instance.LpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
-    model_3 = simple_instance.create_pulp_model(lpp)
+    lpp = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    x1 = tools.get_x_after_model_solve(lpp)
+    print("Минмальное значение новой ЗЛП = ", d.dot(x1), "\n")
 
-    status_3 = model_3.solve(pulp.PULP_CBC_CMD(msg=False))
-    if status_3 != 1:
-        raise ValueError("Status after model solving is False")
 
-    x1 = simple_instance.get_x_after_model_solve(model_3)
-    print("Минмальное значение новой ЗЛП = ", d.dot(x1))
 
-    d1 = solver.solve(lpp, x0)
-    print("Значение нормы после повторной попытки найти нужное d = ", np.absolute(d1 - lpp.c).sum(), "\n")
+def test4():
+    print("Test 4")
+    sp = min_cost_flow_gen.LPPMinCostFlow(100, 10)
+
+    x_1 = tools.get_x_after_model_solve(sp.lpp)
+    res_1 = x_1.dot(sp.lpp.c)
+    print("Минимальное значение функции 1 = ", res_1)
+
+    inst_2 = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, np.random.uniform(-1, 1, sp.lpp.c.shape[0]), sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    x_2 = tools.get_x_after_model_solve(inst_2)
+    res_2 = x_2.dot(sp.lpp.c)
+
+    if res_2 == res_1:
+        raise ValueError("res_1 == res_2")
+
+    print("Минимальное значение функции 2 = ", res_2)
+
+    x0, lpp = (x_1, inst_2) if res_1 > res_2 else (x_2, sp.lpp)
+
+    solver = inverse_lp.InverseLpSolverL1()
+    d = solver.solve(lpp, x0)
+
+    print("Значение нормы = ", np.absolute(d - lpp.c).sum(), "\n")
+
+    print("Значение новой ЗЛП при новом d = d * x0 = ", x0.dot(d))
+
+    inst_3 = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    x_3 = tools.get_x_after_model_solve(inst_3)
+    print("Минмальное значение новой ЗЛП = ", d.dot(x_3))
+
 
 
 test1()
 test2()
 test3()
+test4()

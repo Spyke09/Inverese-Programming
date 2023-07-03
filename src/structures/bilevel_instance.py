@@ -1,0 +1,42 @@
+import simple_instance
+import numpy as np
+
+
+class BilevelInstance:
+    def __init__(self, a, b, c, big_b, big_c):
+        n, m = a.shape
+        self._inst = simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.Equal, np.full(m, 0), None)
+        self._big_b = big_b
+        self._big_c = big_c
+
+    @property
+    def a(self):
+        return self._inst.a
+
+    @property
+    def b(self):
+        return self._inst.b
+
+    @property
+    def c(self):
+        return self._inst.c
+
+    @property
+    def lower_bounds(self):
+        return self._inst.lower_bounds
+
+    @property
+    def upper_bounds(self):
+        return self._inst.upper_bounds
+
+    @property
+    def big_b(self):
+        return self._big_b
+
+    @property
+    def big_c(self):
+        return self._big_c
+
+    @property
+    def sign(self):
+        return self._inst.sign
