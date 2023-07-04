@@ -5,9 +5,9 @@ from src.structures import simple_instance
 
 
 class BilevelInstance:
-    def __init__(self, a, b, c, big_b, big_c):
+    def __init__(self, a, b, c, big_b, big_c, upper_bounds=None):
         n, m = a.shape
-        self._inst = simple_instance.InvLpInstance(a, b, c, LpSign.Equal, np.full(m, 0), None)
+        self._inst = simple_instance.InvLpInstance(a, b, c, LpSign.Equal, np.full(m, 0), upper_bounds)
         self._big_b = big_b
         self._big_c = big_c
 

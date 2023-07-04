@@ -73,7 +73,6 @@ def test3():
     print("Минмальное значение новой ЗЛП = ", d.dot(x1), "\n")
 
 
-
 def test4():
     print("Test 4")
     sp = min_cost_flow_gen.LPPMinCostFlow(100, 10)

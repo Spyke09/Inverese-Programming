@@ -50,14 +50,14 @@ def create_pulp_model_from_inv_lp_instance(instance: simple_instance.InvLpInstan
     return model
 
 
-def get_x_after_model_solve(inst):
+def get_x_after_model_solve(inst: simple_instance.InvLpInstance):
     model = create_pulp_model_from_inv_lp_instance(inst)
     status = model.solve(config.SOLVER)
     if status != 1:
         raise ValueError("Status after model solving is False")
 
-    x = list()
+    x = np.full(inst.c.shape[0], 0.)
     for v in model.variables():
         if "x_" in v.name:
-            x.append(v.varValue)
+            x[int(v.name[2:])] = v.varValue
     return np.array(x)
