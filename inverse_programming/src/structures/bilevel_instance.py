@@ -1,7 +1,7 @@
 import numpy as np
 
-from src.structures.simple_instance import LpSign
-from src.structures import simple_instance
+from inverse_programming.src.structures.simple_instance import LpSign
+from inverse_programming.src.structures import simple_instance
 
 
 class BilevelInstance:

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
-from src.lpp_generator.random_s_t_graph import RandomSTGraph
-from src.structures import simple_instance
+from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
+from inverse_programming.src.structures import simple_instance
 
 
 class LPPMinCostFlow:

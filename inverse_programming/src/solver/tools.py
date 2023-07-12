@@ -1,8 +1,8 @@
 import numpy as np
 import pulp
 
-from src.config import config
-from src.structures import simple_instance
+from inverse_programming.src.config import config
+from inverse_programming.src.structures import simple_instance
 
 
 def create_pulp_model_from_inv_lp_instance(instance: simple_instance.InvLpInstance, name: str = "UNNAMED"):

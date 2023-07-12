@@ -1,9 +1,8 @@
 import numpy as np
 
-from src.lpp_generator import min_cost_flow_gen
-from src.lpp_generator import shortest_path_gen
-from src.solver import inverse_lp, tools
-from src.structures import simple_instance
+from inverse_programming.src.lpp_generator import shortest_path_gen, min_cost_flow_gen
+from inverse_programming.src.solver import inverse_lp, tools
+from inverse_programming.src.structures import simple_instance
 
 
 def test1():

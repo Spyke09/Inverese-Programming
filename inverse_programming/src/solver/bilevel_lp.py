@@ -1,8 +1,8 @@
 import numpy as np
 import pulp
 
-from src.config import config
-from src.structures import bilevel_instance, simple_instance
+from inverse_programming.src.config import config
+from inverse_programming.src.structures import simple_instance, bilevel_instance
 
 
 class BilevelLpSolver:
