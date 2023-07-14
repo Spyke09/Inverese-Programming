@@ -35,7 +35,13 @@ def print_model(model: coptpy.Model):
                     s += f' + {coef} * {var.getName()}'
                 if coef < 0:
                     s += f' - {-coef} * {var.getName()}'
-        s += f" ? {con.getInfo(coptpy.COPT.Info.UB)}"
+        if con.ub >= 10e29:
+            s += f" >= {con.lb}"
+        elif con.lb <= -10e29:
+            s += f" <= {con.ub}"
+        else:
+            ss += f"{con.lb}"
+            s += f" <= {con.ub}"
         ss += f"{s}\n"
     print(ss)
 
