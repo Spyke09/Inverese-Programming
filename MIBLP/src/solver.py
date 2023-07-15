@@ -2,15 +2,17 @@ from MIBLP.src.mibpl_instance import MIBPLInstance
 import coptpy
 import numpy as np
 import logging
+import typing as tp
+
 
 LOG_LEVEL = 0
 
 
-def print_model(model: coptpy.Model):
+def model_repr(model: coptpy.Model):
     obj = model.getObjective()
     s = [(obj.getCoeff(i), obj.getVar(i).getName()) for i in range(obj.size)]
-
-    ss = f"{s[0][0]} * {s[0][1]}"
+    ss = f"Model <coptpy.Model>\n"
+    ss += f"{s[0][0]} * {s[0][1]}"
 
     for i in range(1, len(s)):
         if s[i][0] > 0:
@@ -20,6 +22,7 @@ def print_model(model: coptpy.Model):
 
     ss += f" -> {'max' if model.ObjSense == coptpy.COPT.MAXIMIZE else 'min'}\n\n"
     cons = model.getConstrs()
+    # usual constraits
     for i in range(cons.size):
         con = cons.getConstr(i)
         s = ""
@@ -35,6 +38,7 @@ def print_model(model: coptpy.Model):
                     s += f' + {coef} * {var.getName()}'
                 if coef < 0:
                     s += f' - {-coef} * {var.getName()}'
+
         if con.ub >= 10e29:
             s += f" >= {con.lb}"
         elif con.lb <= -10e29:
@@ -43,8 +47,17 @@ def print_model(model: coptpy.Model):
             ss += f"{con.lb}"
             s += f" <= {con.ub}"
         ss += f"{s}\n"
-    print(ss)
+    return ss
 
+
+def vars_value_repr(model: coptpy.Model, st_vars: tp.List[str]):
+    vars = model.getVars()
+    values = model.getValues()
+    s = "Vars  values: \n"
+    for i, j in zip(vars, values):
+        if any(i.getName()[:len(k)] == k for k in st_vars):
+            s += f"{i.getName()} = {j}\n"
+    return s
 
 
 class MIBLPSolver:
@@ -59,10 +72,11 @@ class MIBLPSolver:
     """
 
     def __init__(self):
-        self.envr = coptpy.Envr()
+        self._envr = coptpy.Envr()
+        self._logger = logging.getLogger("MIBLPSolver")
 
     def _master_problem_init(self, inst: MIBPLInstance) -> coptpy.Model:
-        model: coptpy.Model = self.envr.createModel(name="Master")
+        model: coptpy.Model = self._envr.createModel(name="Master")
         model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
         # (15)
         x_u = model.addVars(range(inst.m_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_u")
@@ -111,7 +125,7 @@ class MIBLPSolver:
             inst: MIBPLInstance,
             x_u_k: np.array,
             y_u_k: np.array) -> coptpy.Model:
-        model: coptpy.Model = self.envr.createModel(name="Subproblem 1")
+        model: coptpy.Model = self._envr.createModel(name="Subproblem 1")
         model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
         x_l = model.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addVars(range(inst.n_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
@@ -141,7 +155,7 @@ class MIBLPSolver:
             x_u_k: np.array,
             y_u_k: np.array,
             theta_small_k: float) -> coptpy.Model:
-        model: coptpy.Model = self.envr.createModel(name="Subproblem 2")
+        model: coptpy.Model = self._envr.createModel(name="Subproblem 2")
         model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
         x_l = model.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addVars(range(inst.n_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
@@ -271,18 +285,18 @@ class MIBLPSolver:
             for i in range(n_l)
         )
 
-        a = True
+        bin_val = 1
         # (87)
         master.addConstr(
-            (psi_j == a) >>
+            (psi_j == bin_val) >>
             (sum(inst.w_r[j] * self._x_l0[j] for j in range(inst.w_r.shape[0])) +
              sum(inst.w_z[j] * self._y_l0[j] for j in range(inst.w_z.shape[0])) >=
              sum(inst.w_r[j] * x_l_j[j] for j in range(inst.w_r.shape[0])) +
              sum(inst.w_z[j] * y_l_j[j] for j in range(inst.w_z.shape[0])))
         )
 
-        b = master.addConstrs(
-            ((psi_j == a) >>
+        master.addConstrs(
+            ((psi_j == bin_val) >>
              (sum(inst.p_r[i, j] * x_l_j[j] for j in range(inst.p_r.shape[1])) <=
               inst.s[i] -
               sum(inst.q_r[i, j] * self._x_u[j] for j in range(inst.q_r.shape[1])) -
@@ -292,20 +306,20 @@ class MIBLPSolver:
         )
 
         master.addConstrs(
-            ((psi_j == a) >>
-             sum(inst.p_r[i, j] * pi_j[i] for i in range(n_l)) >= inst.w_r[j])
+            ((psi_j == bin_val) >>
+             (sum(inst.p_r[i, j] * pi_j[i] for i in range(n_l)) >= inst.w_r[j]))
             for j in range(inst.w_r.shape[0])
         )
-        master.addConstrs(((psi_j == a) >> (x_l_j[j] <= kkt_1[j] * big_m)) for j in range(inst.w_r.shape[0]))
+        master.addConstrs(((psi_j == bin_val) >> (x_l_j[j] <= kkt_1[j] * big_m)) for j in range(inst.w_r.shape[0]))
         master.addConstrs(
-            ((psi_j == a) >>
+            ((psi_j == bin_val) >>
              (sum(inst.p_r[i, j] * pi_j[i] for i in range(n_l)) - inst.w_r[j] <= big_m - kkt_1[j] * big_m))
             for j in range(inst.w_r.shape[0])
         )
 
-        master.addConstrs(((psi_j == a) >> (pi_j[i] <= kkt_2[i] * big_m)) for i in range(n_l))
+        master.addConstrs(((psi_j == bin_val) >> (pi_j[i] <= kkt_2[i] * big_m)) for i in range(n_l))
         master.addConstrs(
-            ((psi_j == a) >>
+            ((psi_j == bin_val) >>
              (inst.s[i] -
               sum(inst.p_r[i, j] * x_l_j[j] for j in range(inst.p_r.shape[1])) -
               sum(inst.q_r[i, j] * self._x_u[j] for j in range(inst.q_r.shape[1])) -
@@ -318,52 +332,68 @@ class MIBLPSolver:
         # (88)
         master.addConstr(eps - eps * psi_j <= sum(t_j[i] for i in range(n_l)))
 
-    def solve(self, inst: MIBPLInstance, eps=0.0):
+    def solve(self, inst: MIBPLInstance, eps=10e-7):
         upper_bound = coptpy.COPT.INFINITY
         k = 0
         master = self._master_problem_init(inst)
 
+        self._logger.info("Start solving MIBLP problem.")
         while True:
             master.solve()
-            # print_model(master)
             if master.status != coptpy.COPT.OPTIMAL:
+                self._logger.info("Master problem is unfeasible.")
                 raise ValueError("Master problem should be feasible")
 
+            self._logger.debug("Master problem is solved.")
             x_u, y_u, x_l0, y_l0 = self._get_optimal_solution_from_master(master, inst)
+            self._logger.debug(f"Master answer: x_u = {x_u}, y_u = {y_u}, x_l0 = {x_l0}, y_l0 = {y_l0}")
 
             lower_bound = inst.c_r.dot(x_u) + inst.c_z.dot(y_u) + inst.d_r.dot(x_l0) + inst.d_z.dot(y_l0)
-            print((lower_bound, upper_bound))
+            self._logger.debug(f"Current bounds: ({lower_bound}, {upper_bound})")
+
             if abs(upper_bound - lower_bound) <= eps:
+                self._logger.debug(f"Required precision obtained at {k} step.")
                 break
 
             subproblem_1 = self._subproblem_1_init(inst, x_u, y_u)
             subproblem_1.solve()
             if master.status != coptpy.COPT.OPTIMAL:
+                self._logger.debug(f"Subproblem 1 is unfeasible.")
                 raise ValueError("Subproblem 1 should be feasible")
 
+            self._logger.debug("Subproblem 1 problem is solved.")
             x_l_hat, y_l_hat = self._get_optimal_solution_from_subproblem(subproblem_1, inst)
             theta_small_k = inst.w_r.dot(x_l_hat) + inst.w_z.dot(y_l_hat)
+            self._logger.debug(f"Subproblem 1 answer: x_l = {x_l_hat}, y_l = {y_l_hat}, theta = {theta_small_k}.")
 
             subproblem_2 = self._subproblem_2_init(inst, x_u, y_u, theta_small_k)
             subproblem_2.solve()
             if subproblem_2.status == coptpy.COPT.OPTIMAL:
+                self._logger.debug("Subproblem 2 problem is solved.")
                 x_l, y_l = self._get_optimal_solution_from_subproblem(subproblem_2, inst)
                 theta_big_k = inst.d_r.dot(x_l) + inst.d_z.dot(y_l)
                 upper_bound = min(upper_bound, inst.c_r.dot(x_u) + inst.c_z.dot(y_u) + theta_big_k)
+                self._logger.debug(f"Subproblem 1 answer: x_l = {x_l}, y_l = {y_l}, theta = {theta_big_k}.")
+
                 y_l_arc = y_l
             else:
+                self._logger.debug("Subproblem 2 problem is unfeasible.")
                 y_l_arc = y_l_hat
 
             if abs(upper_bound - lower_bound) < eps:
+                self._logger.debug(f"Required precision obtained at {k} step.")
                 break
 
-            # print()
-            # print(*[(i.getName(), j) for i, j in zip(master.getVars(), master.getValues())], sep="\n")
-            # print_model(master)
-            if k == 100:
-                break
+            if k == 3:
+                self._logger.debug("Iteration limit has been reached.")
+                raise ValueError("Iteration limit has been reached")
 
+            self._logger.debug(f"Next y_l_j to master problem = {y_l_arc}.")
             self._update_master_problem(master, y_l_arc, inst, k)
             k += 1
 
-        return self._get_optimal_solution_from_master(master, inst)
+        self._logger.info("Finish solving MIBLP problem.")
+
+        x_u, y_u, x_l0, y_l0 = self._get_optimal_solution_from_master(master, inst)
+        self._logger.debug(f"Optimal solution problem: x_u = {x_u}, y_u = {y_u}, x_l0 = {x_l0}, y_l0 = {y_l0}")
+        return x_u, y_u, x_l0, y_l0

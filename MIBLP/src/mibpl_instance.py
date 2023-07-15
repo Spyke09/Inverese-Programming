@@ -17,7 +17,7 @@ class MIBPLInstance:
             y_l0 - integer positive vector of size n_z
 
             (x_l0, y_l0) ∈ argmax{  w_r * x_l + w_z * y_l :
-                                    p_r * x_l + p_z * y_l + q_r * x_u + q_z * y_u <= r
+                                    q_r * x_u + q_z * y_u  + p_r * x_l + p_z * y_l <= r
                                     x_l - continuous positive vector of size n_r
                                     y_l - integer positive vector of size n_z
 
@@ -37,10 +37,10 @@ class MIBPLInstance:
     w_r: np.array
     w_z: np.array
 
-    p_r: np.array
-    p_z: np.array
     q_r: np.array
     q_z: np.array
+    p_r: np.array
+    p_z: np.array
     s: np.array
 
     m_r: int = dataclasses.field(init=False)
