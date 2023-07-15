@@ -6,7 +6,7 @@ import logging
 logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S', level=logging.DEBUG)
 
 
-logger = logging.getLogger("TestFlowFinder")
+logger = logging.getLogger("TestMIBPLSolver")
 
 
 def toy_example_1_test():
@@ -90,7 +90,7 @@ def toy_example_3_test():
     )
 
     solver = MIBLPSolver()
-    solver.solve(inst)
+    solver.solve(inst, 5)
 
 
 # toy_example_1_test()

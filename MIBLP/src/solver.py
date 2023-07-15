@@ -142,7 +142,7 @@ class MIBLPSolver:
             sum(inst.p_r[i, j] * x_l[j] for j in range(inst.p_r.shape[1])) +
             sum(inst.p_z[i, j] * y_l[j] for j in range(inst.p_z.shape[1])) <=
             inst.s[i] -
-            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.a_r.shape[1])) -
+            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.q_r.shape[1])) -
             sum(inst.q_z[i, j] * y_u_k[j] for j in range(inst.q_z.shape[1]))
             for i in range(inst.s.shape[0])
         )
@@ -172,18 +172,18 @@ class MIBLPSolver:
             sum(inst.p_r[i, j] * x_l[j] for j in range(inst.p_r.shape[1])) +
             sum(inst.p_z[i, j] * y_l[j] for j in range(inst.p_z.shape[1])) <=
             inst.s[i] -
-            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.a_r.shape[1])) -
+            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.q_r.shape[1])) -
             sum(inst.q_z[i, j] * y_u_k[j] for j in range(inst.q_z.shape[1]))
             for i in range(inst.s.shape[0])
         )
 
         # b_r * x_l0 + b_z * y_l0 <= r - a_r * x_u_k - a_z * y_u_k
         model.addConstrs(
-            sum(inst.b_r[i, j] * x_l[j] for j in range(inst.p_r.shape[1])) +
-            sum(inst.b_z[i, j] * y_l[j] for j in range(inst.p_z.shape[1])) <=
+            sum(inst.b_r[i, j] * x_l[j] for j in range(inst.b_r.shape[1])) +
+            sum(inst.b_z[i, j] * y_l[j] for j in range(inst.b_z.shape[1])) <=
             inst.r[i] -
             sum(inst.a_r[i, j] * x_u_k[j] for j in range(inst.a_r.shape[1])) -
-            sum(inst.a_z[i, j] * y_u_k[j] for j in range(inst.q_z.shape[1]))
+            sum(inst.a_z[i, j] * y_u_k[j] for j in range(inst.a_z.shape[1]))
             for i in range(inst.r.shape[0])
         )
 
@@ -230,17 +230,16 @@ class MIBLPSolver:
         # (80)
         x_l_j = master.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"x_l_{k}")
         pi_j = master.addVars(range(n_l), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"pi_l_{k}")
+        la = master.addVars(range(n_l), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"la_{k}")
+
         kkt_1 = master.addVars(range(inst.n_r), vtype=coptpy.COPT.BINARY, nameprefix=f"kkt_1_{k}")
         kkt_2 = master.addVars(range(n_l), vtype=coptpy.COPT.BINARY, nameprefix=f"kkt_2_{k}")
-
         kkt_3 = master.addVars(range(inst.n_r), vtype=coptpy.COPT.BINARY, nameprefix=f"kkt_3_{k}")
         kkt_4 = master.addVars(range(n_l), vtype=coptpy.COPT.BINARY, nameprefix=f"kkt_4_{k}")
         kkt_5 = master.addVars(range(n_l), vtype=coptpy.COPT.BINARY, nameprefix=f"kkt_5_{k}")
 
         t_j = master.addVars(range(n_l), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"t_{k}")
         psi_j = master.addVar(vtype=coptpy.COPT.BINARY, name=f"psi_{k}")
-
-        la = master.addVars(range(n_l), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"la_{k}")
 
         # (79)
         master.addConstrs(
@@ -332,7 +331,7 @@ class MIBLPSolver:
         # (88)
         master.addConstr(eps - eps * psi_j <= sum(t_j[i] for i in range(n_l)))
 
-    def solve(self, inst: MIBPLInstance, eps=10e-7):
+    def solve(self, inst: MIBPLInstance, iter_limit=100, eps=10e-7, ):
         upper_bound = coptpy.COPT.INFINITY
         k = 0
         master = self._master_problem_init(inst)
@@ -341,7 +340,7 @@ class MIBLPSolver:
         while True:
             master.solve()
             if master.status != coptpy.COPT.OPTIMAL:
-                self._logger.info("Master problem is unfeasible.")
+                self._logger.info("Master problem is infeasible.")
                 raise ValueError("Master problem should be feasible")
 
             self._logger.debug("Master problem is solved.")
@@ -352,13 +351,13 @@ class MIBLPSolver:
             self._logger.debug(f"Current bounds: ({lower_bound}, {upper_bound})")
 
             if abs(upper_bound - lower_bound) <= eps:
-                self._logger.debug(f"Required precision obtained at {k} step.")
+                self._logger.debug(f"Required precision obtained at {k+1} step.")
                 break
 
             subproblem_1 = self._subproblem_1_init(inst, x_u, y_u)
             subproblem_1.solve()
             if master.status != coptpy.COPT.OPTIMAL:
-                self._logger.debug(f"Subproblem 1 is unfeasible.")
+                self._logger.debug(f"Subproblem 1 is infeasible.")
                 raise ValueError("Subproblem 1 should be feasible")
 
             self._logger.debug("Subproblem 1 problem is solved.")
@@ -373,18 +372,19 @@ class MIBLPSolver:
                 x_l, y_l = self._get_optimal_solution_from_subproblem(subproblem_2, inst)
                 theta_big_k = inst.d_r.dot(x_l) + inst.d_z.dot(y_l)
                 upper_bound = min(upper_bound, inst.c_r.dot(x_u) + inst.c_z.dot(y_u) + theta_big_k)
-                self._logger.debug(f"Subproblem 1 answer: x_l = {x_l}, y_l = {y_l}, theta = {theta_big_k}.")
+                self._logger.debug(f"Subproblem 2 answer: x_l = {x_l}, y_l = {y_l}, theta = {theta_big_k}.")
 
                 y_l_arc = y_l
             else:
-                self._logger.debug("Subproblem 2 problem is unfeasible.")
+                self._logger.debug("Subproblem 2 problem is infeasible.")
                 y_l_arc = y_l_hat
 
             if abs(upper_bound - lower_bound) < eps:
-                self._logger.debug(f"Required precision obtained at {k} step.")
+                self._logger.debug(f"Current bounds: ({lower_bound}, {upper_bound})")
+                self._logger.debug(f"Required precision obtained at {k+1} step.")
                 break
 
-            if k == 3:
+            if k == iter_limit:
                 self._logger.debug("Iteration limit has been reached.")
                 raise ValueError("Iteration limit has been reached")
 
