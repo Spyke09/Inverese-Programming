@@ -293,7 +293,7 @@ class MIBLPSolver:
 
             self._logger.debug("Master problem is solved.")
             x_u, y_u, x_l0, y_l0 = self._get_optimal_solution_from_master(master, inst)
-            self._logger.debug(f"Master answer: x_u = {x_u}, y_u = {y_u}, x_l0 = {x_l0}, y_l0 = {y_l0}")
+            self._logger.debug(f"Master answer: \nx_u = {x_u}, \ny_u = {y_u}, \nx_l0 = {x_l0}, \ny_l0 = {y_l0}")
 
             lower_bound = inst.c_r.dot(x_u) + inst.c_z.dot(y_u) + inst.d_r.dot(x_l0) + inst.d_z.dot(y_l0)
             self._logger.debug(f"Current bounds: ({lower_bound}, {upper_bound})")
@@ -311,7 +311,7 @@ class MIBLPSolver:
             self._logger.debug("Subproblem 1 problem is solved.")
             x_l_hat, y_l_hat = self._get_optimal_solution_from_subproblem(subproblem_1, inst)
             theta_small_k = inst.w_r.dot(x_l_hat) + inst.w_z.dot(y_l_hat)
-            self._logger.debug(f"Subproblem 1 answer: x_l = {x_l_hat}, y_l = {y_l_hat}, theta = {theta_small_k}.")
+            self._logger.debug(f"Subproblem 1 answer: \nx_l = {x_l_hat}, \ny_l = {y_l_hat}, \ntheta = {theta_small_k}.")
 
             subproblem_2 = self._subproblem_2_init(inst, x_u, y_u, theta_small_k)
             subproblem_2.solve()
@@ -320,7 +320,7 @@ class MIBLPSolver:
                 x_l, y_l = self._get_optimal_solution_from_subproblem(subproblem_2, inst)
                 theta_big_k = inst.d_r.dot(x_l) + inst.d_z.dot(y_l)
                 upper_bound = min(upper_bound, inst.c_r.dot(x_u) + inst.c_z.dot(y_u) + theta_big_k)
-                self._logger.debug(f"Subproblem 2 answer: x_l = {x_l}, y_l = {y_l}, theta = {theta_big_k}.")
+                self._logger.debug(f"Subproblem 2 answer: \nx_l = {x_l}, \ny_l = {y_l}, \ntheta = {theta_big_k}.")
 
                 y_l_arc = y_l
             else:
@@ -343,5 +343,5 @@ class MIBLPSolver:
         self._logger.info("Finish solving MIBLP problem.")
 
         x_u, y_u, x_l0, y_l0 = self._get_optimal_solution_from_master(master, inst)
-        self._logger.debug(f"Optimal solution problem: x_u = {x_u}, y_u = {y_u}, x_l0 = {x_l0}, y_l0 = {y_l0}")
+        self._logger.debug(f"Optimal solution problem: \nx_u = {x_u}, \ny_u = {y_u}, \nx_l0 = {x_l0}, \ny_l0 = {y_l0}")
         return x_u, y_u, x_l0, y_l0
