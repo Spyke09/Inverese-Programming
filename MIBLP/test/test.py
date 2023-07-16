@@ -90,9 +90,9 @@ def toy_example_3_test():
     )
 
     solver = MIBLPSolver()
-    solver.solve(inst, 5)
+    solver.solve(inst)
 
 
-# toy_example_1_test()
-# toy_example_2_test()
+toy_example_1_test()
+toy_example_2_test()
 toy_example_3_test()

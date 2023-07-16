@@ -259,7 +259,7 @@ class MIBLPSolver:
         )
         master.addConstrs(x_l_j[i] <= big_m * kkt_3[i] for i in range(inst.n_r))
         master.addConstrs(
-            sum(inst.p_r[i, j] * la[j] for i in range(n_l)) <= big_m - big_m * kkt_3[j]
+            sum(inst.p_r[i, j] * la[i] for i in range(n_l)) <= big_m - big_m * kkt_3[j]
             for j in range(inst.n_r)
         )
 
