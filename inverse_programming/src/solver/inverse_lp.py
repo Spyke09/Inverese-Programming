@@ -2,8 +2,9 @@ import abc
 
 import numpy as np
 import pulp
-from inverse_programming.src.solver import tools
+
 from inverse_programming.src.config import config
+from inverse_programming.src.solver import tools
 from inverse_programming.src.structures import simple_instance
 
 
