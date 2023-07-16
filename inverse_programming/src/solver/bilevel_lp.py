@@ -313,7 +313,7 @@ class MinMaxDistBilevelLpSolver:
     @staticmethod
     def _reconvert_answer(
             miblp_answer: tp.Tuple[np.array, np.array, np.array, np.array],
-            inst: mibpl_instance.MIBPLInstance):
+            inst: bilevel_instance):
         b_p_idx = tuple(range(inst.big_b.shape[1]))
         b_m_idx = tuple(range(b_p_idx[-1] + 1, b_p_idx[-1] + 1 + inst.big_b.shape[1]))
         c_p_idx = tuple(range(b_m_idx[-1] + 1, b_m_idx[-1] + 1 + inst.big_c.shape[1]))
