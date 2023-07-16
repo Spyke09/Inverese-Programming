@@ -12,23 +12,16 @@ logger = logging.getLogger("TestMIBPLSolver")
 def toy_example_1_test():
     logger.info("Toy example 1 Test")
     inst = MIBPLInstance(
-        np.full(0, 0),
+        None,
         np.array([-1]),
-        np.full(0, 0),
+        None,
         np.array([-10]),
-
-        np.full((0, 0), 0),
-        np.full((0, 1), 0),
-        np.full((0, 0), 0),
-        np.full((0, 1), 0),
-        np.full(0, 0),
-
-        np.full(0, 0),
+        None, None, None, None, None,
+        None,
         np.array([-1]),
-
-        np.full((4, 0), 0),
+        None,
         np.array([[-25], [1], [2], [-2]]),
-        np.full((4, 0), 0),
+        None,
         np.array([[20], [2], [-1], [-10]]),
         np.array([30, 10, 15, -15]),
     )
