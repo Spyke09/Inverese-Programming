@@ -163,20 +163,20 @@ class MinMaxDistBilevelLpSolver:
         c_p_idx = tuple(range(b_m_idx[-1] + 1, b_m_idx[-1] + 1 + inst.big_c.shape[1]))
         c_m_idx = tuple(range(c_p_idx[-1] + 1, c_p_idx[-1] + 1 + inst.big_c.shape[1]))
         ome_idx = tuple(range(c_m_idx[-1] + 1, c_m_idx[-1] + 1 + inst.a.shape[1]))
-        # x_l_0
-        x_l_idx = tuple(range(inst.big_c.shape[1]))
         # x_l
         x_s_idx = tuple(range(inst.big_c.shape[1]))
         y_p_idx = tuple(range(x_s_idx[-1] + 1, x_s_idx[-1] + 1 + inst.a.shape[0]))
         y_m_idx = tuple(range(y_p_idx[-1] + 1, y_p_idx[-1] + 1 + inst.a.shape[0]))
         o_s_idx = tuple(range(y_m_idx[-1] + 1, y_m_idx[-1] + 1 + inst.big_c.shape[1]))
+        # x_l_0
+        x_l_idx = tuple(range(inst.big_c.shape[1]))
         # y_l
         phi_idx = tuple(range(inst.big_c.shape[1]))
         psi_idx = tuple(range(phi_idx[-1] + 1, phi_idx[-1] + 1 + inst.big_c.shape[1]))
 
         len_r = 2 * inst.big_c.shape[1] + 2 * inst.b.shape[0] + 2 * inst.c.shape[0]
         a_r = np.full((len_r, ome_idx[-1] + 1), 0.0)
-        b_r = np.full((len_r, x_l_idx[-1] + 1), 0.0)
+        b_r = np.full((len_r, o_s_idx[-1] + 1), 0.0)
         r = np.full(len_r, 0.0)
 
         # -w_j + x_j <= x0_j
@@ -318,11 +318,14 @@ class MinMaxDistBilevelLpSolver:
         b_m_idx = tuple(range(b_p_idx[-1] + 1, b_p_idx[-1] + 1 + inst.big_b.shape[1]))
         c_p_idx = tuple(range(b_m_idx[-1] + 1, b_m_idx[-1] + 1 + inst.big_c.shape[1]))
         c_m_idx = tuple(range(c_p_idx[-1] + 1, c_p_idx[-1] + 1 + inst.big_c.shape[1]))
+        x_l_idx = tuple(range(inst.big_c.shape[1]))
 
         x_u, y_u, x_l0, y_l0 = miblp_answer
         b = x_u[b_p_idx[0]:b_p_idx[-1] + 1] - x_u[b_m_idx[0]:b_m_idx[-1] + 1]
         c = x_u[c_p_idx[0]:c_p_idx[-1] + 1] - x_u[c_m_idx[0]:c_m_idx[-1] + 1]
-        return x_l0, b, c
+        x = x_l0[x_l_idx[0]:x_l_idx[-1] + 1]
+
+        return x, b, c
 
     def solve(self, inst: bilevel_instance.BilevelInstance, x0):
         miblp_inst = self._convert_to_miblp(inst, x0)
