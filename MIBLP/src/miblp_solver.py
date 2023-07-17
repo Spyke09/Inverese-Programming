@@ -3,7 +3,7 @@ import logging
 import coptpy
 import numpy as np
 
-from MIBLP.src.mibpl_instance import MIBPLInstance
+from MIBLP.src.miblp_instance import MIBPLInstance
 
 LOG_LEVEL = 0
 

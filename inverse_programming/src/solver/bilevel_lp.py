@@ -3,7 +3,7 @@ import pulp
 import typing as tp
 from inverse_programming.src.config import config
 from inverse_programming.src.structures import simple_instance, bilevel_instance
-from MIBLP.src import solver as miblp_solver, mibpl_instance
+from MIBLP.src import miblp_solver as miblp_solver, miblp_instance
 
 class BilevelLpSolver:
     @staticmethod
@@ -155,7 +155,7 @@ class BilevelLpSolver:
 
 class MinMaxDistBilevelLpSolver:
     @staticmethod
-    def _convert_to_miblp(inst: bilevel_instance.BilevelInstance, x0) -> mibpl_instance.MIBPLInstance:
+    def _convert_to_miblp(inst: bilevel_instance.BilevelInstance, x0) -> miblp_instance.MIBPLInstance:
         big_m = 100000000
         # x_u
         b_p_idx = tuple(range(inst.big_b.shape[1]))
@@ -303,7 +303,7 @@ class MinMaxDistBilevelLpSolver:
         for i in range(inst.a.shape[1]):
             w_r[o_s_idx[i]] = 1
 
-        return mibpl_instance.MIBPLInstance(
+        return miblp_instance.MIBPLInstance(
             c_r, None, None, None,
             a_r, None, b_r, None, r,
             w_r, None,
