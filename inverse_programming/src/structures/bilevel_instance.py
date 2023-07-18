@@ -11,6 +11,14 @@ class BilevelInstance:
         self._big_b = big_b
         self._big_c = big_c
 
+    def hide_upper_bounds(self):
+        n, m = self.a.shape
+        self._inst.hide_upper_bounds()
+        big_b = np.full((self._big_b.shape[0], n + m), 0.0)
+        for i in range(self._big_b.shape[0]):
+            for j in range(n):
+                big_b[i, j] = self.big_b[i, j]
+
     @property
     def a(self):
         return self._inst.a
