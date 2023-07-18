@@ -19,6 +19,8 @@ class BilevelInstance:
             for j in range(n):
                 big_b[i, j] = self.big_b[i, j]
 
+        self._big_b = big_b
+
     @property
     def a(self):
         return self._inst.a
