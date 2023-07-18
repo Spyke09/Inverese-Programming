@@ -75,25 +75,14 @@ class MIBLPSolver:
             y_u_k: np.array) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 1")
         model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
-        x_l = model.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
-        y_l = model.addVars(range(inst.n_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
+        x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
+        y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
         # theta_small(x_u_k, y_u_k) = max(w_r * x_l + w_z * y_l, {x_l, y_l})
-        model.setObjective(
-            sum(inst.w_r[j] * x_l[j] for j in range(inst.w_r.shape[0])) +
-            sum(inst.w_z[j] * y_l[j] for j in range(inst.w_z.shape[0])),
-            coptpy.COPT.MAXIMIZE
-        )
+        model.setObjective(inst.w_r @ x_l + inst.w_z @ y_l, coptpy.COPT.MAXIMIZE)
 
         # p_r * x_l + p_z * y_l <= s - q_r * x_u_k - q_z * y_u_k
-        model.addConstrs(
-            sum(inst.p_r[i, j] * x_l[j] for j in range(inst.p_r.shape[1])) +
-            sum(inst.p_z[i, j] * y_l[j] for j in range(inst.p_z.shape[1])) <=
-            inst.s[i] -
-            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.q_r.shape[1])) -
-            sum(inst.q_z[i, j] * y_u_k[j] for j in range(inst.q_z.shape[1]))
-            for i in range(inst.s.shape[0])
-        )
+        model.addConstrs(inst.p_r @ x_l + inst.p_z @ y_l <= inst.s - inst.q_r @ x_u_k - inst.q_z @ y_u_k)
 
         return model
 
@@ -105,41 +94,20 @@ class MIBLPSolver:
             theta_small_k: float) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 2")
         model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
-        x_l = model.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
-        y_l = model.addVars(range(inst.n_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
+        x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
+        y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
         # tetta_big(x_u_k, y_u_k) = min(d_r * x_l + d_z * y_l, {x_l, y_l})
-        model.setObjective(
-            sum(inst.d_r[j] * x_l[j] for j in range(inst.d_r.shape[0])) +
-            sum(inst.d_z[j] * y_l[j] for j in range(inst.d_z.shape[0])),
-            coptpy.COPT.MINIMIZE
-        )
+        model.setObjective(inst.d_r @ x_l + inst.d_z @ y_l, coptpy.COPT.MINIMIZE)
 
         # p_r * x_l + p_z * y_l <= s - q_r * x_u_k - q_z * y_u_k
-        model.addConstrs(
-            sum(inst.p_r[i, j] * x_l[j] for j in range(inst.p_r.shape[1])) +
-            sum(inst.p_z[i, j] * y_l[j] for j in range(inst.p_z.shape[1])) <=
-            inst.s[i] -
-            sum(inst.q_r[i, j] * x_u_k[j] for j in range(inst.q_r.shape[1])) -
-            sum(inst.q_z[i, j] * y_u_k[j] for j in range(inst.q_z.shape[1]))
-            for i in range(inst.s.shape[0])
-        )
+        model.addConstrs(inst.p_r @ x_l + inst.p_z @ y_l <= inst.s - inst.q_r @ x_u_k - inst.q_z @ y_u_k)
 
         # b_r * x_l0 + b_z * y_l0 <= r - a_r * x_u_k - a_z * y_u_k
-        model.addConstrs(
-            sum(inst.b_r[i, j] * x_l[j] for j in range(inst.b_r.shape[1])) +
-            sum(inst.b_z[i, j] * y_l[j] for j in range(inst.b_z.shape[1])) <=
-            inst.r[i] -
-            sum(inst.a_r[i, j] * x_u_k[j] for j in range(inst.a_r.shape[1])) -
-            sum(inst.a_z[i, j] * y_u_k[j] for j in range(inst.a_z.shape[1]))
-            for i in range(inst.r.shape[0])
-        )
+        model.addConstrs(inst.b_r @ x_l + inst.b_z @ y_l <= inst.r - inst.a_r @ x_u_k - inst.a_z @ y_u_k)
 
         # w_r * x_l + w_z * y_l >= theta_small(x_l, y_l)
-        model.addConstr(
-            sum(inst.w_r[j] * x_l[j] for j in range(inst.w_r.shape[0])) +
-            sum(inst.w_z[j] * y_l[j] for j in range(inst.w_z.shape[0])) >= theta_small_k
-        )
+        model.addConstr(inst.w_r @ x_l + inst.w_z @ y_l >= theta_small_k)
 
         return model
 

@@ -1,5 +1,5 @@
-from MIBLP.src.mibpl_instance import MIBPLInstance
-from MIBLP.src.solver import MIBLPSolver
+from MIBLP.src.miblp_instance import MIBPLInstance
+from MIBLP.src.miblp_solver import MIBLPSolver
 import numpy as np
 import logging
 
@@ -86,6 +86,6 @@ def toy_example_3_test():
     solver.solve(inst)
 
 
-toy_example_1_test()
-toy_example_2_test()
+# toy_example_1_test()
+# toy_example_2_test()
 toy_example_3_test()
