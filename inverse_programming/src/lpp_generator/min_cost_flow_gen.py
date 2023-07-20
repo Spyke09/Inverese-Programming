@@ -1,5 +1,3 @@
-import random
-
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
@@ -28,8 +26,8 @@ class LPPMinCostFlow:
         for v in range(n):
             for u in range(n):
                 if self._graph.has_edge(v, u):
-                    self._graph[v][u]["capacity"] = random.randint(0, 10 * n)
-                    self._graph[v][u]["cost"] = random.randint(-10 * n, 10 * n)
+                    self._graph[v][u]["capacity"] = np.random.randint(0, 10 * n)
+                    self._graph[v][u]["cost"] = np.random.uniform(-1, 1)
 
         # кодирование ребер
         self._edge_encoder = dict()
@@ -55,7 +53,7 @@ class LPPMinCostFlow:
                         a[v][self._edge_encoder[w, v]] = -1.0
 
         b = np.full(self._n_nodes, 0.0)
-        b[s] = random.randint(0, 10 * self._n_nodes)
+        b[s] = np.random.randint(0, 10 * self._n_nodes)
 
         # вектор стоимостей ребер
         c = np.full(self._n_edges, 0.0)

@@ -11,16 +11,6 @@ class BilevelInstance:
         self._big_b = big_b
         self._big_c = big_c
 
-    def hide_upper_bounds(self):
-        n, m = self.a.shape
-        self._inst.hide_upper_bounds()
-        big_b = np.full((self._big_b.shape[0], n + m), 0.0)
-        for i in range(self._big_b.shape[0]):
-            for j in range(n):
-                big_b[i, j] = self.big_b[i, j]
-
-        self._big_b = big_b
-
     @property
     def a(self):
         return self._inst.a
@@ -52,3 +42,42 @@ class BilevelInstance:
     @property
     def sign(self):
         return self._inst.sign
+
+    def hide_upper_bounds(self):
+        n, m = self.a.shape
+        a = np.full((n + m, 2 * m), 0.0)
+        for i in range(n):
+            for j in range(m):
+                a[i, j] = self.a[i, j]
+
+        for i in range(m):
+            a[i + n, i] = 1.0
+            a[i + n, m + i] = 1.0
+
+        big_b = np.full((self._big_b.shape[0] + m, n + m), 0.0)
+        for i in range(self._big_b.shape[0]):
+            for j in range(self._big_b.shape[1]):
+                big_b[i, j] = self._big_b[i, j]
+        for i in range(m):
+            big_b[self._big_b.shape[0] + i, n + i] = 1.0
+
+        b = np.concatenate([self.b, self.upper_bounds])
+
+        big_c = np.full((self._big_c.shape[0] + m, 2 * m), 0.0)
+        for i in range(self._big_c.shape[0]):
+            for j in range(self._big_c.shape[1]):
+                big_c[i, j] = self._big_c[i, j]
+        for i in range(m):
+            big_c[self._big_c.shape[0] + i, m + i] = 1.0
+
+        c = np.concatenate([self.c, np.full(m, 0.0)])
+
+        self._inst._a = a
+        self._inst._c = c
+        self._inst._b = b
+        self._big_c = big_c
+        self._big_b = big_b
+        self._inst._upper_bounds = None
+        self._inst._lower_bounds = np.full(self.a.shape[1], 0.0)
+
+

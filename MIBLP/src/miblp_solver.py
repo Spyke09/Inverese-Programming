@@ -2,10 +2,9 @@ import logging
 
 import coptpy
 import numpy as np
+import inverse_programming.src.config.config as config
 
 from MIBLP.src.miblp_instance import MIBPLInstance
-
-LOG_LEVEL = 0
 
 
 class MIBLPSolver:
@@ -25,7 +24,7 @@ class MIBLPSolver:
 
     def _master_problem_init(self, inst: MIBPLInstance) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Master")
-        model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
         # (15)
         x_u = model.addVars(range(inst.m_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_u")
         y_u = model.addVars(range(inst.m_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_u")
@@ -74,7 +73,7 @@ class MIBLPSolver:
             x_u_k: np.array,
             y_u_k: np.array) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 1")
-        model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
         x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
@@ -93,7 +92,7 @@ class MIBLPSolver:
             y_u_k: np.array,
             theta_small_k: float) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 2")
-        model.setParam(coptpy.COPT.Param.Logging, LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
         x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
@@ -140,7 +139,7 @@ class MIBLPSolver:
         return np.array(x_l), np.array(y_l)
 
     def _update_master_problem(self, master: coptpy.Model, y_l_j: np.array, inst: MIBPLInstance, k):
-        big_m = 10e7
+        big_m = config.BIG_M
         eps = 10e-1
         n_l = inst.s.shape[0]
         # (80)

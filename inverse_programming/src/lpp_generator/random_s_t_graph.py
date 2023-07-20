@@ -1,4 +1,4 @@
-import random
+import numpy as np
 
 import networkx as nx
 
@@ -9,7 +9,7 @@ class RandomSTGraph:
         for u in range(n):
             for v in range(u + 1, n):
                 if self.graph.has_edge(v, u):
-                    if random.randint(0, 1):
+                    if np.random.randint(0, 2):
                         self.graph.remove_edge(u, v)
                     else:
                         self.graph.remove_edge(v, u)
@@ -17,4 +17,4 @@ class RandomSTGraph:
         self.n_edges = len(self.graph.edges)
         self.n_nodes = len(self.graph.nodes)
 
-        self.s, self.t = 0, random.randint(1, self.n_nodes - 1)
+        self.s, self.t = 0, np.random.randint(1, self.n_nodes)

@@ -30,22 +30,6 @@ class InvLpInstance:
         if lower_bounds is not None:
             self._lower_bounds = np.array(lower_bounds)
 
-    def hide_upper_bounds(self):
-        n, m = self.a.shape
-        a = np.full((n + m, m), 0.0)
-        b = np.full(n + m, 0.0)
-        for i in range(n):
-            for j in range(m):
-                a = self.a[i, j]
-            b = self.b[i]
-        for i in range(n, n + m):
-            a = self.a[i, i - n]
-            b = self._upper_bounds[i - n]
-
-        self._a = a
-        self._b = b
-        self._upper_bounds = None
-
     @property
     def a(self) -> np.array:
         return self._a

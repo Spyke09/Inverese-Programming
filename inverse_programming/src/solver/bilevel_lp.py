@@ -4,6 +4,8 @@ import typing as tp
 from inverse_programming.src.config import config
 from inverse_programming.src.structures import simple_instance, bilevel_instance
 from MIBLP.src import miblp_solver as miblp_solver, miblp_instance
+import inverse_programming.src.config.config as config
+
 
 class BilevelLpSolver:
     @staticmethod
@@ -42,7 +44,6 @@ class BilevelLpSolver:
             true_a[n + i, m + i] = 1
 
         # ограничения Ax == b
-        assert inst.sign == simple_instance.LpSign.Equal
         for i in range(n + m):
             model += (pulp.lpSum([X[j] * true_a[i, j] for j in range(2 * m)]) == true_b[i])
 
@@ -51,7 +52,6 @@ class BilevelLpSolver:
             model += (pulp.lpSum([Y[i] * true_a[i, j] for i in range(n + m)]) >= true_c[j])
 
         # ограничения Bb = ~b
-        assert inst.big_b.shape[0] == inst.b.shape[0]
         for i in range(inst.big_b.shape[0]):
             model += (pulp.lpSum([b[j] * inst.big_b[i, j] for j in range(inst.big_b.shape[1])]) == inst.b[i])
 
@@ -156,7 +156,7 @@ class BilevelLpSolver:
 class MinMaxDistBilevelLpSolver:
     @staticmethod
     def _convert_to_miblp(inst: bilevel_instance.BilevelInstance, x0) -> miblp_instance.MIBPLInstance:
-        big_m = 100000000
+        big_m = config.BIG_M
         # x_u
         b_p_idx = tuple(range(inst.big_b.shape[1]))
         b_m_idx = tuple(range(b_p_idx[-1] + 1, b_p_idx[-1] + 1 + inst.big_b.shape[1]))
@@ -190,7 +190,7 @@ class MinMaxDistBilevelLpSolver:
         for j in range(inst.big_c.shape[1]):
             a_r[(col_idx + j, ome_idx[j])] = -1
             b_r[(col_idx + j, x_l_idx[j])] = -1
-            r[col_idx + j] = x0[j]
+            r[col_idx + j] = -x0[j]
         col_idx += inst.big_c.shape[1]
 
         # B * b_p - B * b_m <= b~
@@ -261,12 +261,12 @@ class MinMaxDistBilevelLpSolver:
             p_z[col_idx + j, phi_idx[j]] = -big_m
         col_idx += inst.a.shape[1]
 
-        # x_j + M * phi_j + o_s <= -x0_j + M
+        # x_j - M * phi_j + o_s <= x0_j + M
         for j in range(inst.a.shape[1]):
             p_r[col_idx + j, x_s_idx[j]] = 1
             p_r[col_idx + j, o_s_idx[j]] = 1
-            s[col_idx + j] = -x0[j] + big_m
-            p_z[col_idx + j, phi_idx[j]] = big_m
+            s[col_idx + j] = x0[j] + big_m
+            p_z[col_idx + j, phi_idx[j]] = -big_m
         col_idx += inst.a.shape[1]
 
         # A_T * y_p - A_T * y_m - c_p + c_m - psi * M <= 0
@@ -289,11 +289,13 @@ class MinMaxDistBilevelLpSolver:
         # psi <= 1
         for i in range(inst.a.shape[1]):
             p_z[col_idx + i, psi_idx[i]] = 1
+            s[col_idx + i] = 1.0
         col_idx += inst.a.shape[1]
 
         # phi <= 1
         for i in range(inst.a.shape[1]):
             p_z[col_idx + i, phi_idx[i]] = 1
+            s[col_idx + i] = 1.0
 
         c_r = np.full(ome_idx[-1] + 1, 0.0)
         for i in range(inst.a.shape[1]):
@@ -328,6 +330,12 @@ class MinMaxDistBilevelLpSolver:
         return x, b, c
 
     def solve(self, inst: bilevel_instance.BilevelInstance, x0):
+        if inst.upper_bounds is not None:
+            raise NotImplementedError("Algorithm with upper bounds not implemented.")
+
+        if not (inst.lower_bounds == 0.0).all():
+            raise ValueError("Lower bounds should be zero.")
+
         miblp_inst = self._convert_to_miblp(inst, x0)
         solver = miblp_solver.MIBLPSolver()
         answer = solver.solve(miblp_inst)
