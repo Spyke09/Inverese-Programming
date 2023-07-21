@@ -27,7 +27,8 @@ def toy_example_1_test():
     )
 
     solver = MIBLPSolver()
-    solver.solve(inst)
+    x_u, y_u, x_l0, y_l0 = solver.solve(inst)
+    assert x_u.shape[0] == 0 and y_u == np.array([2.]) and x_l0.shape[0] == 0, y_l0 == np.array([2.])
 
 
 def toy_example_2_test():
@@ -55,7 +56,8 @@ def toy_example_2_test():
     )
 
     solver = MIBLPSolver()
-    solver.solve(inst)
+    x_u, y_u, x_l0, y_l0 = solver.solve(inst)
+    assert x_u.shape[0] == 0 and y_u == np.array([8.]) and x_l0.shape[0] == 0, y_l0 == np.array([6.])
 
 
 def toy_example_3_test():
@@ -83,7 +85,8 @@ def toy_example_3_test():
     )
 
     solver = MIBLPSolver()
-    solver.solve(inst)
+    x_u, y_u, x_l0, y_l0 = solver.solve(inst)
+    assert x_u == np.array([28./9.]) and y_u == np.array([8.]) and x_l0 == np.array([0.]), y_l0 == np.array([0.])
 
 
 # toy_example_1_test()

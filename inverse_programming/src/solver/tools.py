@@ -2,10 +2,10 @@ import numpy as np
 import pulp
 
 from inverse_programming.src.config import config
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures import inv_instance
 
 
-def create_pulp_model_from_inv_lp_instance(instance: simple_instance.InvLpInstance, name: str = "UNNAMED"):
+def create_pulp_model_from_inv_lp_instance(instance: inv_instance.InvLpInstance, name: str = "UNNAMED"):
     """
     Создание модели pulp из модели InvLpInstance.
 
@@ -35,24 +35,24 @@ def create_pulp_model_from_inv_lp_instance(instance: simple_instance.InvLpInstan
     model += pulp.lpSum([instance.c[i] * x[i] for i in range(m)])
 
     # ограницения из матрицы a
-    if instance.sign == simple_instance.LpSign.MoreE:
+    if instance.sign == inv_instance.LpSign.MoreE:
         for i in range(n):
             model += (pulp.lpSum([x[j] * instance.a[i, j] for j in range(m)]) >= instance.b[i])
 
-    if instance.sign == simple_instance.LpSign.Equal:
+    if instance.sign == inv_instance.LpSign.Equal:
         for i in range(n):
             model += (pulp.lpSum([x[j] * instance.a[i, j] for j in range(m)]) == instance.b[i])
 
-    if instance.sign == simple_instance.LpSign.LessE:
+    if instance.sign == inv_instance.LpSign.LessE:
         for i in range(n):
             model += (pulp.lpSum([x[j] * instance.a[i, j] for j in range(m)]) <= instance.b[i])
 
     return model
 
 
-def get_x_after_model_solve(inst: simple_instance.InvLpInstance):
+def get_x_after_model_solve(inst: inv_instance.InvLpInstance):
     model = create_pulp_model_from_inv_lp_instance(inst)
-    status = model.solve(config.SOLVER)
+    status = model.solve(config.PULP_SOLVER)
     if status != 1:
         raise ValueError("Status after model solving is False")
 

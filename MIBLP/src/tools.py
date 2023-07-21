@@ -46,10 +46,10 @@ def model_repr(model: coptpy.Model):
 
 
 def vars_value_repr(model: coptpy.Model, st_vars: tp.List[str]):
-    vars = model.getVars()
+    vars_ = model.getVars()
     values = model.getValues()
     s = "Vars  values: \n"
-    for i, j in zip(vars, values):
+    for i, j in zip(vars_, values):
         if any(i.getName()[:len(k)] == k for k in st_vars):
             s += f"{i.getName()} = {j}\n"
     return s

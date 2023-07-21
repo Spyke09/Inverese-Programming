@@ -2,7 +2,7 @@ import numpy as np
 
 from inverse_programming.src.lpp_generator import min_cost_flow_gen
 from inverse_programming.src.solver import tools, bilevel_lp
-from inverse_programming.src.structures import simple_instance, bilevel_instance
+from inverse_programming.src.structures import inv_instance, bilevel_instance
 
 
 # декоратор для тестов, где могут получиться невыполнимые инстансы
@@ -153,7 +153,14 @@ def test6():
     res_1 = x_1.dot(inst_1.c)
     print("Минимальное значение функции 1 = ", res_1)
 
-    inst_2 = simple_instance.InvLpInstance(inst_1.a, inst_1.b, np.random.uniform(-1, 1, inst_1.c.shape[0]), inst_1.sign, inst_1.lower_bounds, inst_1.upper_bounds)
+    inst_2 = inv_instance.InvLpInstance(
+        inst_1.a,
+        inst_1.b,
+        np.random.uniform(-1, 1, inst_1.c.shape[0]),
+        inst_1.sign,
+        inst_1.lower_bounds,
+        inst_1.upper_bounds)
+
     x_2 = tools.get_x_after_model_solve(inst_2)
     res_2 = x_2.dot(inst_1.c)
 
@@ -165,7 +172,14 @@ def test6():
     x0, lpp = (x_1, inst_2) if res_1 > res_2 else (x_2, inst_1)
     # x0, lpp = (x_1, inst_1) if res_1 > res_2 else (x_2, inst_2)
 
-    b_inst = bilevel_instance.BilevelInstance(lpp.a, lpp.b, lpp.c, np.eye(lpp.b.shape[0]), np.eye(lpp.c.shape[0]), inst_1.upper_bounds)
+    b_inst = bilevel_instance.BilevelInstance(
+        lpp.a,
+        lpp.b,
+        lpp.c,
+        np.eye(lpp.b.shape[0]),
+        np.eye(lpp.c.shape[0]),
+        inst_1.upper_bounds)
+
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(b_inst, x0)
 
@@ -174,16 +188,13 @@ def test6():
     if (c == 0).all():
         print("c = 0\n")
         return
-    inst_3 = simple_instance.InvLpInstance(inst_1.a, b, c, inst_1.sign, inst_1.lower_bounds, inst_1.upper_bounds)
+    inst_3 = inv_instance.InvLpInstance(inst_1.a, b, c, inst_1.sign, inst_1.lower_bounds, inst_1.upper_bounds)
     x_3 = tools.get_x_after_model_solve(inst_3)
     print("Минмальное значение новой ЗЛП = ", c.dot(x_3))
 
 
-
-# test1()
-# test2()
-# test3()
-# test4()
+test1()
+test2()
+test3()
+test4()
 test6()
-
-

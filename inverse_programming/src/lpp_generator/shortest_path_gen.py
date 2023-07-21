@@ -5,7 +5,7 @@ import networkx as nx
 import numpy as np
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures import inv_instance
 
 
 class LPPShortestPath:
@@ -41,7 +41,7 @@ class LPPShortestPath:
 
         self.lpp = self._init_lpp()
 
-    def _init_lpp(self) -> simple_instance.InvLpInstance:
+    def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
         n, m = self._n_nodes, self._n_edges
         a = np.full((n, m), 0.0)
@@ -63,7 +63,7 @@ class LPPShortestPath:
         for v, u in self._graph.edges:
             c[self._edge_encoder[v, u]] = self._graph[v][u]["weight"]
 
-        return simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.Equal, np.full(m, 0.0), np.full(m, 1.0))
+        return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, np.full(m, 0.0), np.full(m, 1.0))
 
     @property
     def start(self):

@@ -55,10 +55,31 @@ class MIBPLInstance:
     def __post_init__(self):
         self.m_r = max(self.__shape(self.a_r, 1), self.__shape(self.q_r, 1), self.__shape(self.c_r, 0))
         self.m_z = max(self.__shape(self.a_z, 1), self.__shape(self.q_z, 1), self.__shape(self.c_z, 0))
-        self.n_r = max(self.__shape(self.b_r, 1), self.__shape(self.p_r, 1), self.__shape(self.d_r, 0), self.__shape(self.w_r, 0))
-        self.n_z = max(self.__shape(self.b_z, 1), self.__shape(self.p_z, 1), self.__shape(self.d_z, 0), self.__shape(self.w_z, 0))
-        self.n_u = max(self.__shape(self.a_r, 0), self.__shape(self.a_z, 0), self.__shape(self.b_r, 0), self.__shape(self.b_z, 0), self.__shape(self.r, 0), 1)
-        self.n_l = max(self.__shape(self.p_r, 0), self.__shape(self.p_z, 0), self.__shape(self.q_r, 0), self.__shape(self.q_z, 0), self.__shape(self.s, 0), 1)
+        self.n_r = max(
+            self.__shape(self.b_r, 1),
+            self.__shape(self.p_r, 1),
+            self.__shape(self.d_r, 0),
+            self.__shape(self.w_r, 0))
+
+        self.n_z = max(
+            self.__shape(self.b_z, 1),
+            self.__shape(self.p_z, 1),
+            self.__shape(self.d_z, 0),
+            self.__shape(self.w_z, 0))
+
+        self.n_u = max(
+            self.__shape(self.a_r, 0),
+            self.__shape(self.a_z, 0),
+            self.__shape(self.b_r, 0),
+            self.__shape(self.b_z, 0),
+            self.__shape(self.r, 0), 1)
+
+        self.n_l = max(
+            self.__shape(self.p_r, 0),
+            self.__shape(self.p_z, 0),
+            self.__shape(self.q_r, 0),
+            self.__shape(self.q_z, 0),
+            self.__shape(self.s, 0), 1)
 
         if self.c_r is None:
             self.c_r = np.full(self.m_r, 0.0)

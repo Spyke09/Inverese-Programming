@@ -24,7 +24,7 @@ class MIBLPSolver:
 
     def _master_problem_init(self, inst: MIBPLInstance) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Master")
-        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.COPT_LOG_LEVEL)
         # (15)
         x_u = model.addVars(range(inst.m_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_u")
         y_u = model.addVars(range(inst.m_z), vtype=coptpy.COPT.INTEGER, nameprefix="y_u")
@@ -73,7 +73,7 @@ class MIBLPSolver:
             x_u_k: np.array,
             y_u_k: np.array) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 1")
-        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.COPT_LOG_LEVEL)
         x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
@@ -92,7 +92,7 @@ class MIBLPSolver:
             y_u_k: np.array,
             theta_small_k: float) -> coptpy.Model:
         model: coptpy.Model = self._envr.createModel(name="Subproblem 2")
-        model.setParam(coptpy.COPT.Param.Logging, config.LOG_LEVEL)
+        model.setParam(coptpy.COPT.Param.Logging, config.COPT_LOG_LEVEL)
         x_l = model.addMVar(inst.n_r, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x_l")
         y_l = model.addMVar(inst.n_z, vtype=coptpy.COPT.INTEGER, nameprefix="y_l")
 
@@ -138,9 +138,7 @@ class MIBLPSolver:
 
         return np.array(x_l), np.array(y_l)
 
-    def _update_master_problem(self, master: coptpy.Model, y_l_j: np.array, inst: MIBPLInstance, k):
-        big_m = config.BIG_M
-        eps = 10e-1
+    def _update_master_problem(self, master: coptpy.Model, y_l_j: np.array, inst: MIBPLInstance, k, big_m, eps_for_psi):
         n_l = inst.s.shape[0]
         # (80)
         x_l_j = master.addVars(range(inst.n_r), vtype=coptpy.COPT.CONTINUOUS, nameprefix=f"x_l_{k}")
@@ -244,9 +242,9 @@ class MIBLPSolver:
         )
 
         # (88)
-        master.addConstr(eps - eps * psi_j <= sum(t_j[i] for i in range(n_l)))
+        master.addConstr(eps_for_psi - eps_for_psi * psi_j <= sum(t_j[i] for i in range(n_l)))
 
-    def solve(self, inst: MIBPLInstance, iter_limit=100, eps=10e-7, ):
+    def solve(self, inst: MIBPLInstance, iter_limit=100, eps=10e-7, big_m=1000000, eps_for_psi=10e-1):
         upper_bound = coptpy.COPT.INFINITY
         k = 0
         master = self._master_problem_init(inst)
@@ -304,7 +302,7 @@ class MIBLPSolver:
                 raise ValueError("Iteration limit has been reached")
 
             self._logger.debug(f"Next y_l_j to master problem = {y_l_arc}.")
-            self._update_master_problem(master, y_l_arc, inst, k)
+            self._update_master_problem(master, y_l_arc, inst, k, big_m, eps_for_psi)
             k += 1
 
         self._logger.info("Finish solving MIBLP problem.")

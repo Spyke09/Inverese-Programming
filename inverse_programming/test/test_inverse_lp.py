@@ -2,7 +2,7 @@ import numpy as np
 
 from inverse_programming.src.lpp_generator import shortest_path_gen, min_cost_flow_gen
 from inverse_programming.src.solver import inverse_lp, tools
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures import inv_instance
 
 
 def test1():
@@ -18,7 +18,7 @@ def test1():
     x0 = np.array([-3.1, 5.3])
     # доп. ограничения
     l, u = [-9., 5.], [-3., 14.]
-    inst = simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.MoreE, l, u)
+    inst = inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.MoreE, l, u)
 
     solver = inverse_lp.InverseLpSolverL1()
     d = solver.solve(inst, x0)
@@ -35,7 +35,7 @@ def test2():
     b = np.array([2., 4., -20])
     x0 = np.array([-3.1, 5.3])
 
-    inst = simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.MoreE)
+    inst = inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.MoreE)
 
     solver = inverse_lp.InverseLpSolverLInfinity()
     # Весовая функция
@@ -55,7 +55,7 @@ def test3():
     new_a = np.concatenate((sp.lpp.a, ban), axis=0)
     new_b = np.concatenate((sp.lpp.b, np.array([1])))
 
-    inst_2 = simple_instance.InvLpInstance(new_a, new_b, sp.lpp.c, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    inst_2 = inv_instance.InvLpInstance(new_a, new_b, sp.lpp.c, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
     x0 = tools.get_x_after_model_solve(inst_2)
 
     print("Минимальное значение функции = ", x.dot(sp.lpp.c))
@@ -67,7 +67,7 @@ def test3():
     print("Значение нормы = ", np.absolute(d - sp.lpp.c).sum(), "\n")
     print("Значение новой ЗЛП при новом d = d * x0 = ", d.dot(x0))
 
-    lpp = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    lpp = inv_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
     x1 = tools.get_x_after_model_solve(lpp)
     print("Минмальное значение новой ЗЛП = ", d.dot(x1), "\n")
 
@@ -80,7 +80,14 @@ def test4():
     res_1 = x_1.dot(sp.lpp.c)
     print("Минимальное значение функции 1 = ", res_1)
 
-    inst_2 = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, np.random.uniform(-1, 1, sp.lpp.c.shape[0]), sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    inst_2 = inv_instance.InvLpInstance(
+        sp.lpp.a,
+        sp.lpp.b,
+        np.random.uniform(-1, 1, sp.lpp.c.shape[0]),
+        sp.lpp.sign,
+        sp.lpp.lower_bounds,
+        sp.lpp.upper_bounds)
+
     x_2 = tools.get_x_after_model_solve(inst_2)
     res_2 = x_2.dot(sp.lpp.c)
 
@@ -98,10 +105,9 @@ def test4():
 
     print("Значение новой ЗЛП при новом d = d * x0 = ", x0.dot(d))
 
-    inst_3 = simple_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
+    inst_3 = inv_instance.InvLpInstance(sp.lpp.a, sp.lpp.b, d, sp.lpp.sign, sp.lpp.lower_bounds, sp.lpp.upper_bounds)
     x_3 = tools.get_x_after_model_solve(inst_3)
     print("Минмальное значение новой ЗЛП = ", d.dot(x_3))
-
 
 
 test1()
