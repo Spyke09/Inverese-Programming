@@ -5,7 +5,7 @@ import pulp
 
 from inverse_programming.src.config import config
 from inverse_programming.src.solver import tools
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures import inv_instance
 
 
 def is_zero(x):
@@ -24,11 +24,11 @@ class AbstractInverseLpSolver(abc.ABC):
     Все наследники должны реализовывать метод `solve`.
     """
     @abc.abstractmethod
-    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: inv_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         raise NotImplementedError
 
     @staticmethod
-    def _find_binding_constraints(instance: simple_instance.InvLpInstance, x0: np.array):
+    def _find_binding_constraints(instance: inv_instance.InvLpInstance, x0: np.array):
         """
         Нахождение масок для множеств B, L, U, F (страница 16).
 
@@ -72,7 +72,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
     """
 
     @staticmethod
-    def __get_d(instance: simple_instance.InvLpInstance, dual_inv_answer: np.array, x0: np.array):
+    def __get_d(instance: inv_instance.InvLpInstance, dual_inv_answer: np.array, x0: np.array):
         """
         Формирование результирующего вектора `d`.
 
@@ -96,7 +96,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __create_inv_lp_instance(instance: simple_instance.InvLpInstance, masks, x0):
+    def __create_inv_lp_instance(instance: inv_instance.InvLpInstance, masks, x0):
         """
         Формирование экземпляра задачи обратного программирования.
 
@@ -135,9 +135,9 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
                 l_[j] = x0[j] - 1.
                 u[j] = x0[j] + 1.
 
-        return simple_instance.InvLpInstance(np.array(a), np.array(b), c, instance.sign, l_, u)
+        return inv_instance.InvLpInstance(np.array(a), np.array(b), c, instance.sign, l_, u)
 
-    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: inv_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         """
         Формирования и решение задачи INV.
 
@@ -160,26 +160,22 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         masks = super()._find_binding_constraints(instance, x0)
 
         # формируем экземпляр INV
-        inv_instance = self.__create_inv_lp_instance(instance, masks, x0)
-        inv_model = tools.create_pulp_model_from_inv_lp_instance(inv_instance)
+        inv_inst = self.__create_inv_lp_instance(instance, masks, x0)
+        inv_model = tools.create_pulp_model_from_inv_lp_instance(inv_inst)
 
         # решаем и проверяем что экземпляра INV есть решение
-        inv_status = inv_model.solve(config.SOLVER)
+        inv_status = inv_model.solve(config.PULP_SOLVER)
         if inv_status != 1:
             raise ValueError("Status after model solving is False")
 
         # получаем вектор pi и формируем из него решение задачи INV.
-        dual_inv_answer = np.array([i.pi for _, i in inv_model.constraints.items()][:inv_instance.b.shape[0]])
-        result_d = self.__get_d(inv_instance, dual_inv_answer, x0)
-
-        # проверка, что найденные вектора удовлетворяют условиям оптимальности.
-        # if not self.__check_L1(inv_instance, result_d, dual_inv_answer, x):
-        #     raise ValueError("Solve Error")
+        dual_inv_answer = np.array([i.pi for _, i in inv_model.constraints.items()][:inv_inst.b.shape[0]])
+        result_d = self.__get_d(inv_inst, dual_inv_answer, x0)
 
         return result_d
 
     @staticmethod
-    def __check_L1(instance: simple_instance.InvLpInstance, d, pi):
+    def __check_L1(instance: inv_instance.InvLpInstance, d, pi):
         """
         Проверка решения задачи INV на оптимальность.
         :param instance: исходный экземпляр
@@ -204,7 +200,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
     """
 
     @staticmethod
-    def __get_binding_instance(instance: simple_instance.InvLpInstance, b_mask):
+    def __get_binding_instance(instance: inv_instance.InvLpInstance, b_mask):
         """
         Получение нового экземпляра путем избавления от unbinding ограничений в исходном.
         :param instance: исходный экземпляр ЗЛП.
@@ -224,9 +220,9 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
             if b_mask[i]:
                 a_.append(instance.a[i])
                 b_.append(instance.b[i])
-        return simple_instance.InvLpInstance(np.array(a_), np.array(b_), instance.c, instance.sign)
+        return inv_instance.InvLpInstance(np.array(a_), np.array(b_), instance.c, instance.sign)
 
-    def solve(self, instance: simple_instance.InvLpInstance, x0: np.array, weights: np.array = None):
+    def solve(self, instance: inv_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         """
         Формирования и решение задачи INV.
 
@@ -254,7 +250,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         # создание модели pulp INV
         inv_model = self.__create_inv_model(binding_inst, x0, weights)
         # решение модели выше и проверка того, нашлось ли решение
-        inv_model.solve(config.SOLVER)
+        inv_model.solve(config.PULP_SOLVER)
         inv_model_status = inv_model.status
         if inv_model_status != 1:
             raise ValueError("Status after model solving is False")
@@ -271,7 +267,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __create_inv_model(binding_inst: simple_instance.InvLpInstance, x0, weights, name: str = "UNNAMED"):
+    def __create_inv_model(binding_inst: inv_instance.InvLpInstance, x0, weights, name: str = "UNNAMED"):
         """
         Создание модели pulp задачи INV. Все по формулам из стр. 24.
 
@@ -312,7 +308,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return model
 
     @staticmethod
-    def __get_d(instance: simple_instance.InvLpInstance, dual_inv_answer: np.array):
+    def __get_d(instance: inv_instance.InvLpInstance, dual_inv_answer: np.array):
         """
         Формирование результирующего вектора `d`.
 
@@ -330,7 +326,7 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         return d
 
     @staticmethod
-    def __check_LInfinity(instance: simple_instance.InvLpInstance, pi, d):
+    def __check_LInfinity(instance: inv_instance.InvLpInstance, pi, d):
         """
         Проверка решения задачи INV на оптимальность.
 

@@ -3,7 +3,7 @@ import networkx as nx
 import numpy as np
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures import inv_instance
 
 
 class LPPMinCostFlow:
@@ -40,7 +40,7 @@ class LPPMinCostFlow:
 
         self.lpp = self._init_lpp()
 
-    def _init_lpp(self) -> simple_instance.InvLpInstance:
+    def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
         a = np.full((self._n_nodes, self._n_edges), 0.0)
 
@@ -66,7 +66,7 @@ class LPPMinCostFlow:
         for v, u in self._graph.edges:
             up_b[self._edge_encoder[v, u]] = self._graph[v][u]["capacity"]
 
-        return simple_instance.InvLpInstance(a, b, c, simple_instance.LpSign.Equal, low_b, up_b)
+        return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, low_b, up_b)
 
     def draw_graph(self):
         pos = nx.random_layout(self._graph)

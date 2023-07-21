@@ -1,13 +1,13 @@
 import numpy as np
 
-from inverse_programming.src.structures.simple_instance import LpSign
-from inverse_programming.src.structures import simple_instance
+from inverse_programming.src.structures.inv_instance import LpSign
+from inverse_programming.src.structures import inv_instance
 
 
 class BilevelInstance:
     def __init__(self, a, b, c, big_b, big_c, upper_bounds=None):
         n, m = a.shape
-        self._inst = simple_instance.InvLpInstance(a, b, c, LpSign.Equal, np.full(m, 0), upper_bounds)
+        self._inst = inv_instance.InvLpInstance(a, b, c, LpSign.Equal, np.full(m, 0), upper_bounds)
         self._big_b = big_b
         self._big_c = big_c
 
@@ -79,5 +79,3 @@ class BilevelInstance:
         self._big_b = big_b
         self._inst._upper_bounds = None
         self._inst._lower_bounds = np.full(self.a.shape[1], 0.0)
-
-
