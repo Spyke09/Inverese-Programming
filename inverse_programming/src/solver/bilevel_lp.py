@@ -13,9 +13,7 @@ class BilevelLpSolver:
 
         :return: модель pulp.
         """
-        n, m = 0, 0
-        if len(inst.a) != 0:
-            n, m = inst.a.shape
+        n, m = inst.a.shape
 
         model = pulp.LpProblem(name, pulp.LpMinimize)
         # переменные
@@ -81,8 +79,7 @@ class BilevelLpSolver:
         :return: модель pulp.
         """
         n, m = 0, 0
-        if len(inst.a) != 0:
-            n, m = inst.a.shape
+        n, m = inst.a.shape
 
         model = pulp.LpProblem(name, pulp.LpMinimize)
         # переменные

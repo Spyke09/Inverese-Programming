@@ -4,6 +4,7 @@ import numpy as np
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
 from inverse_programming.src.structures import inv_instance
+from inverse_programming.src.structures.inv_instance import LPMatrix, LPVector, LPValue
 
 
 class LPPMinCostFlow:
@@ -42,7 +43,7 @@ class LPPMinCostFlow:
 
     def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
-        a = np.full((self._n_nodes, self._n_edges), 0.0)
+        a = LPMatrix((self._n_nodes, self._n_edges), LPValue)
 
         for v in range(self._n_nodes):
             if v != t:
@@ -52,17 +53,17 @@ class LPPMinCostFlow:
                     if self._graph.has_edge(w, v):
                         a[v][self._edge_encoder[w, v]] = -1.0
 
-        b = np.full(self._n_nodes, 0.0)
+        b = LPVector(self._n_nodes, LPValue)
         b[s] = np.random.randint(0, 10 * self._n_nodes)
 
         # вектор стоимостей ребер
-        c = np.full(self._n_edges, 0.0)
+        c = LPVector(self._n_edges, LPValue)
         for v, u in self._graph.edges:
             c[self._edge_encoder[v, u]] = self._graph[v][u]["cost"]
 
         # нижние и верхние границы переменных
-        low_b = np.full(self._n_edges, 0.0)
-        up_b = np.full(self._n_edges, 0.0)
+        low_b = LPVector(self._n_edges, LPValue)
+        up_b = LPVector(self._n_edges, LPValue)
         for v, u in self._graph.edges:
             up_b[self._edge_encoder[v, u]] = self._graph[v][u]["capacity"]
 

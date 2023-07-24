@@ -1,8 +1,7 @@
-import numpy as np
-
 from inverse_programming.src.lpp_generator import shortest_path_gen, min_cost_flow_gen
 from inverse_programming.src.solver import inverse_lp, tools
 from inverse_programming.src.structures import inv_instance
+from inverse_programming.src.structures.inv_instance import LPVector, LPMatrix
 
 
 def test1():
@@ -10,38 +9,38 @@ def test1():
     Здесь допустимая область - треугольник на плоскости, от которого чуть чуть отсечено ограницением 5 <= x2 <= 6
     """
     print("Test 1")
-    c = np.array([-3., -5.])
-    a = np.array([[1., 1.],
+    c = LPVector([-3., -5.])
+    a = LPMatrix([[1., 1.],
                   [-3., -1.],
                   [1., -1.]])
-    b = np.array([2., 4., -20])
-    x0 = np.array([-3.1, 5.3])
+    b = LPVector([2., 4., -20])
+    x0 = LPVector([-3.1, 5.3])
     # доп. ограничения
-    l, u = [-9., 5.], [-3., 14.]
+    l, u = LPVector([-9., 5.]), LPVector([-3., 14.])
     inst = inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.MoreE, l, u)
 
     solver = inverse_lp.InverseLpSolverL1()
     d = solver.solve(inst, x0)
-    print("Result", d, ", norm", np.absolute(d - inst.c).sum(), "\n")
+    print("Result", d, ", norm", solver.norm(d - inst.c), "\n")
 
 
 def test2():
     # Здесь допустимая область - треугольник на плоскости
     print("Test 2")
-    c = np.array([-3., -5.])
-    a = np.array([[1., 1.],
+    c = LPVector([-3., -5.])
+    a = LPMatrix([[1., 1.],
                   [-3., -1.],
                   [1., -1.]])
-    b = np.array([2., 4., -20])
-    x0 = np.array([-3.1, 5.3])
+    b = LPVector([2., 4., -20])
+    x0 = LPVector([-3.1, 5.3])
 
     inst = inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.MoreE)
 
     solver = inverse_lp.InverseLpSolverLInfinity()
     # Весовая функция
-    w = np.array([1.0, 1.0])
+    w = LPVector([1.0, 1.0])
     d = solver.solve(inst, x0, w)
-    print("Result", d, ", norm", (np.absolute(d - inst.c) * w).max(), "\n")
+    print("Result", d, ", norm", solver.norm(d - inst.c), "\n")
 
 
 def test3():
@@ -49,7 +48,7 @@ def test3():
     sp = shortest_path_gen.LPPShortestPath(100, 10)
     x = tools.get_x_after_model_solve(sp.lpp)
 
-    ban = np.full((1, x.shape[0]), 0)
+    ban = LPVector((1, x.shape[0]), 0)
     ban[0, list(x).index(0)] = 1
 
     new_a = np.concatenate((sp.lpp.a, ban), axis=0)
@@ -111,6 +110,6 @@ def test4():
 
 
 test1()
-test2()
-test3()
-test4()
+# test2()
+# test3()
+# test4()

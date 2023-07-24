@@ -27,6 +27,10 @@ class AbstractInverseLpSolver(abc.ABC):
     def solve(self, instance: inv_instance.InvLpInstance, x0: np.array, weights: np.array = None):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def norm(self, x):
+        raise NotImplementedError
+
     @staticmethod
     def _find_binding_constraints(instance: inv_instance.InvLpInstance, x0: np.array):
         """
@@ -36,25 +40,25 @@ class AbstractInverseLpSolver(abc.ABC):
         :param x0: допустимое значение ЗЛП (на минимум) `instance`.
         :return: Маски для элементов из B, L, U, F (страница 16)
         """
-        diff_for_b = instance.a @ x0 - instance.b
-        idx_mask_b = [is_zero(i) for i in diff_for_b]
+        diff_for_b = instance.a @ x0.T - instance.b.T
+        idx_mask_b = [is_zero(diff_for_b[i, 0]) for i in range(diff_for_b.shape[0])]
 
         t1, t2 = (instance.lower_bounds is not None), (instance.upper_bounds is not None)
         if t1 and not t2:
             diff_for_l = x0 - instance.lower_bounds
-            idx_mask_l = [is_zero(i) for i in diff_for_l]
-            idx_mask_f = [not is_zero(i) for i in diff_for_l]
+            idx_mask_l = [is_zero(diff_for_l[i, 0]) for i in range(diff_for_l.shape[0])]
+            idx_mask_f = [not is_zero(diff_for_l[i, 0]) for i in range(diff_for_l.shape[0])]
             return idx_mask_b, idx_mask_f, idx_mask_l, None
         elif t2 and not t1:
             diff_for_u = x0 - instance.upper_bounds
-            idx_mask_u = [is_zero(i) for i in diff_for_u]
-            idx_mask_f = [not is_zero(i) for i in diff_for_u]
+            idx_mask_u = [is_zero(diff_for_u[i, 0]) for i in range(diff_for_u.shape[0])]
+            idx_mask_f = [not is_zero(diff_for_u[i, 0]) for i in range(diff_for_u.shape[0])]
             return idx_mask_b, idx_mask_f, None, idx_mask_u
         elif t1 and t2:
             diff_for_l = x0 - instance.lower_bounds
             diff_for_u = x0 - instance.upper_bounds
-            idx_mask_l = [is_zero(i) for i in diff_for_l]
-            idx_mask_u = [is_zero(i) for i in diff_for_u]
+            idx_mask_l = [is_zero(diff_for_l[i, 0]) for i in range(diff_for_l.shape[0])]
+            idx_mask_u = [is_zero(diff_for_u[i, 0]) for i in range(diff_for_u.shape[0])]
             idx_mask_f = [(not idx_mask_l[i]) and (not idx_mask_u[i]) for i in range(len(idx_mask_u))]
             return idx_mask_b, idx_mask_f, idx_mask_l, idx_mask_u
         else:
@@ -70,6 +74,9 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         l[i] <= x[i] <= u[i] в исходной задачи.
     Метод `solve` формирует задачу INV и решает ее, давая на выходе вектор d.
     """
+
+    def norm(self, x):
+        return sum(abs(i) for i in x)
 
     @staticmethod
     def __get_d(instance: inv_instance.InvLpInstance, dual_inv_answer: np.array, x0: np.array):
@@ -105,9 +112,7 @@ class InverseLpSolverL1(AbstractInverseLpSolver):
         :param x0: заданный вектор x0 задачи INV.
         :return: экземпляр задачи INV.
         """
-        n, m = 0, 0
-        if len(instance.a) != 0:
-            n, m = instance.a.shape
+        n, m = instance.a.shape
 
         b_mask, f_mask, l_mask, u_mask = masks
         a = list()
@@ -198,6 +203,9 @@ class InverseLpSolverLInfinity(AbstractInverseLpSolver):
         вычисляется норма ||x|| = max(x[i] * w[i], i из I)
     Метод `solve` формирует задачу INV и решает ее, выдает на выходе вектор d.
     """
+
+    def norm(self, x):
+        return max(abs(i) for i in x)
 
     @staticmethod
     def __get_binding_instance(instance: inv_instance.InvLpInstance, b_mask):

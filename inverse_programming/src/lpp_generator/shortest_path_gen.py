@@ -2,10 +2,10 @@ import random
 
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
 from inverse_programming.src.structures import inv_instance
+from inverse_programming.src.structures.inv_instance import LPMatrix, LPVector, LPValue
 
 
 class LPPShortestPath:
@@ -44,7 +44,7 @@ class LPPShortestPath:
     def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
         n, m = self._n_nodes, self._n_edges
-        a = np.full((n, m), 0.0)
+        a = LPMatrix((n, m), LPValue)
 
         # ограничения равенства из матрицы А
         for u, v in self._graph.edges:
@@ -54,16 +54,16 @@ class LPPShortestPath:
             a[u][self._edge_encoder[v, u]] = -1.0
 
         # правые части ограничений в матрице А
-        b = np.full(self._n_nodes, 0.0)
+        b = LPVector(self._n_nodes, LPValue)
         b[s] = 1.0
         b[t] = -1.0
 
         # вектор стоимостей
-        c = np.full(m, 0.0)
+        c = LPVector(m, LPValue)
         for v, u in self._graph.edges:
             c[self._edge_encoder[v, u]] = self._graph[v][u]["weight"]
 
-        return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, np.full(m, 0.0), np.full(m, 1.0))
+        return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, LPVector(m, 0.0), LPVector(m, 1.0))
 
     @property
     def start(self):
