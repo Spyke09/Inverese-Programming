@@ -29,8 +29,8 @@ def test1():
     b = np.array([2])
     x0 = np.array([1.21, 0.79])
 
-    big_b = np.eye(b.shape[0])
-    big_c = np.eye(c.shape[0])
+    big_b = np.eye(b.shape[1])
+    big_c = np.eye(c.shape[1])
 
     print(f"b и c - нельзя менять, x0 = {x0}")
 
@@ -38,6 +38,8 @@ def test1():
 
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(inst, x0)
+    assert (x == [2., 0.]).all() and (b == [2.]).all() and (c == [-3., -5.]).all()
+
     print("x = ", x)
     print("b = ", b)
     print("c = ", c, "\n")
@@ -54,8 +56,8 @@ def test2():
     b = np.array([2])
     x0 = np.array([1.21, 0.79])
 
-    big_b = np.random.rand(0, b.shape[0])
-    big_c = np.random.rand(0, c.shape[0])
+    big_b = np.random.rand(0, b.shape[1])
+    big_c = np.random.rand(0, c.shape[1])
 
     print(f"b и c - любые, x0 = {x0}")
 
@@ -63,6 +65,8 @@ def test2():
 
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(inst, x0)
+    assert abs(x - [1.21, 0.79]).sum() < 10e-7 and (b == [2.]).all() and (c == [0., 0.]).all()
+
     print("x = ", x)
     print("b = ", b)
     print("c = ", c, "\n")
@@ -79,8 +83,8 @@ def test3():
     x0 = np.array([1.21, 0.79])
     upper_bounds = np.array([1.5, 1.5])
 
-    big_b = np.eye(b.shape[0])
-    big_c = np.eye(c.shape[0])
+    big_b = np.eye(b.shape[1])
+    big_c = np.eye(c.shape[1])
 
     print(f"Верхние границы {upper_bounds}, b и c - нельзя менять, x0 = {x0}")
 
@@ -88,6 +92,8 @@ def test3():
 
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(inst, x0)
+    assert (x == [1.5, 0.5]).all() and (b == [2.]).all() and (c == [-3., -5.]).all()
+
     print("x = ", x)
     print("b = ", b)
     print("c = ", c, "\n")
@@ -104,8 +110,8 @@ def test4():
     x0 = np.array([1.21, 0.79])
     upper_bounds = np.array([1.5, 1.5])
 
-    big_b = np.random.rand(0, b.shape[0])
-    big_c = np.random.rand(0, c.shape[0])
+    big_b = np.random.rand(0, b.shape[1])
+    big_c = np.random.rand(0, c.shape[1])
 
     print(f"Верхние границы {upper_bounds}, b и c - любые, x0 = {x0}")
 
@@ -113,6 +119,8 @@ def test4():
 
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(inst, x0)
+    assert abs(x - [1.21, 0.79]).sum() < 10e-7 and (b == [2.]).all() and (c == [0., 0.]).all()
+
     print("x = ", x)
     print("b = ", b)
     print("c = ", c, "\n")
@@ -130,8 +138,8 @@ def test5():
     x0 = np.array([0.0, 0.0])
     upper_bounds = np.array([1.5, 1.5])
 
-    big_b = np.eye(b.shape[0])
-    big_c = np.eye(c.shape[0])
+    big_b = np.eye(b.shape[1])
+    big_c = np.eye(c.shape[1])
 
     print(f"Верхние границы {upper_bounds}, b и c - нельзя менять, x0 = {x0}")
 
@@ -144,25 +152,25 @@ def test5():
     print("c = ", c, "\n")
 
 
-@repeat_if_exception
+# @repeat_if_exception
 def test6():
     print("Test 4")
     sp = min_cost_flow_gen.LPPMinCostFlow(10, 10)
     inst_1 = sp.lpp
     x_1 = tools.get_x_after_model_solve(inst_1)
-    res_1 = x_1.dot(inst_1.c)
+    res_1 = x_1.dot(inst_1.c.T)
     print("Минимальное значение функции 1 = ", res_1)
 
     inst_2 = inv_instance.InvLpInstance(
         inst_1.a,
         inst_1.b,
-        np.random.uniform(-1, 1, inst_1.c.shape[0]),
+        np.random.uniform(-1, 1, inst_1.c.shape[1]),
         inst_1.sign,
         inst_1.lower_bounds,
         inst_1.upper_bounds)
 
     x_2 = tools.get_x_after_model_solve(inst_2)
-    res_2 = x_2.dot(inst_1.c)
+    res_2 = x_2.dot(inst_1.c.T)
 
     if res_2 == res_1:
         raise ValueError("res_1 == res_2")
@@ -176,25 +184,25 @@ def test6():
         lpp.a,
         lpp.b,
         lpp.c,
-        np.eye(lpp.b.shape[0]),
-        np.eye(lpp.c.shape[0]),
+        np.eye(lpp.b.shape[1]),
+        np.eye(lpp.c.shape[1]),
         inst_1.upper_bounds)
 
     solver = bilevel_lp.BilevelLpSolver()
     x, b, c = solver.solve(b_inst, x0)
 
-    print("Значение новой ЗЛП = c * x = ", x0.dot(c))
+    print("Значение новой ЗЛП = c * x = ", x0.dot(c.T))
 
     if (c == 0).all():
         print("c = 0\n")
         return
     inst_3 = inv_instance.InvLpInstance(inst_1.a, b, c, inst_1.sign, inst_1.lower_bounds, inst_1.upper_bounds)
     x_3 = tools.get_x_after_model_solve(inst_3)
-    print("Минмальное значение новой ЗЛП = ", c.dot(x_3))
+    print("Минмальное значение новой ЗЛП = ", c.dot(x_3.T))
 
 
-test1()
-test2()
-test3()
-test4()
+# test1()
+# test2()
+# test3()
+# test4()
 test6()

@@ -48,7 +48,7 @@ def test1():
 
 
 def test2():
-    print("Test 4")
+    print("Test 2")
     sp = min_cost_flow_gen.LPPMinCostFlow(3, 3)
     inst_1 = sp.lpp
     x_1 = tools.get_x_after_model_solve(inst_1)
@@ -81,5 +81,5 @@ def test2():
     print("Минмальное значение новой ЗЛП = ", c.dot(x_3))
 
 
-test1()
-# test2()
+# test1()
+test2()

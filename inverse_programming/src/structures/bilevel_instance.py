@@ -8,8 +8,13 @@ class BilevelInstance:
     def __init__(self, a, b, c, big_b, big_c, upper_bounds=None):
         n, m = a.shape
         self._inst = inv_instance.InvLpInstance(a, b, c, LpSign.Equal, np.full(m, 0), upper_bounds)
-        self._big_b = big_b
-        self._big_c = big_c
+        self._big_b = inv_instance.LPArray(big_b)
+        self._big_c = inv_instance.LPArray(big_c)
+
+    def eliminate_zeros(self):
+        self._inst.eliminate_zeros()
+        self._big_b.eliminate_zeros()
+        self._big_c.eliminate_zeros()
 
     @property
     def a(self):
@@ -45,23 +50,25 @@ class BilevelInstance:
 
     def hide_upper_bounds(self):
         n, m = self.a.shape
-        a = np.full((n + m, 2 * m), 0.0)
+        a = inv_instance.LPArray((n + m, 2 * m))
         for i in range(n):
             for j in range(m):
-                a[i, j] = self.a[i, j]
+                if self.a[i, j] != 0:
+                    a[i, j] = self.a[i, j]
 
         for i in range(m):
             a[i + n, i] = 1.0
             a[i + n, m + i] = 1.0
 
-        big_b = np.full((self._big_b.shape[0] + m, n + m), 0.0)
+        big_b = inv_instance.LPArray((self._big_b.shape[0] + m, n + m))
         for i in range(self._big_b.shape[0]):
             for j in range(self._big_b.shape[1]):
-                big_b[i, j] = self._big_b[i, j]
+                if self._big_b[i, j] != 0:
+                    big_b[i, j] = self._big_b[i, j]
         for i in range(m):
             big_b[self._big_b.shape[0] + i, n + i] = 1.0
 
-        b = np.concatenate([self.b, self.upper_bounds])
+        b = self.b.concatenate(self.upper_bounds)
 
         big_c = np.full((self._big_c.shape[0] + m, 2 * m), 0.0)
         for i in range(self._big_c.shape[0]):
@@ -70,7 +77,7 @@ class BilevelInstance:
         for i in range(m):
             big_c[self._big_c.shape[0] + i, m + i] = 1.0
 
-        c = np.concatenate([self.c, np.full(m, 0.0)])
+        c = self.c.concatenate(inv_instance.LPArray((1, m)))
 
         self._inst._a = a
         self._inst._c = c

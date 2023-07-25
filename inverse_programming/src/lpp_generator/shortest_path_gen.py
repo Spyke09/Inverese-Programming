@@ -5,7 +5,6 @@ import networkx as nx
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
 from inverse_programming.src.structures import inv_instance
-from inverse_programming.src.structures.inv_instance import LPMatrix, LPVector, LPValue
 
 
 class LPPShortestPath:
@@ -44,7 +43,7 @@ class LPPShortestPath:
     def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
         n, m = self._n_nodes, self._n_edges
-        a = LPMatrix((n, m), LPValue)
+        a = inv_instance.LPArray((n, m))
 
         # ограничения равенства из матрицы А
         for u, v in self._graph.edges:
@@ -54,16 +53,23 @@ class LPPShortestPath:
             a[u][self._edge_encoder[v, u]] = -1.0
 
         # правые части ограничений в матрице А
-        b = LPVector(self._n_nodes, LPValue)
+        b = inv_instance.LPArray((1, self._n_nodes))
         b[s] = 1.0
         b[t] = -1.0
 
         # вектор стоимостей
-        c = LPVector(m, LPValue)
+        c = inv_instance.LPArray((1, m))
         for v, u in self._graph.edges:
             c[self._edge_encoder[v, u]] = self._graph[v][u]["weight"]
 
-        return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, LPVector(m, 0.0), LPVector(m, 1.0))
+        return inv_instance.InvLpInstance(
+            a,
+            b,
+            c,
+            inv_instance.LpSign.Equal,
+            inv_instance.LPArray((1, m), 0.0),
+            inv_instance.LPArray((1, m), 1.0)
+        )
 
     @property
     def start(self):

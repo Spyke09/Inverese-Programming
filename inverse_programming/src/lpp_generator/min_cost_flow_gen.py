@@ -4,7 +4,7 @@ import numpy as np
 
 from inverse_programming.src.lpp_generator.random_s_t_graph import RandomSTGraph
 from inverse_programming.src.structures import inv_instance
-from inverse_programming.src.structures.inv_instance import LPMatrix, LPVector, LPValue
+from inverse_programming.src.structures.inv_instance import LPArray
 
 
 class LPPMinCostFlow:
@@ -43,29 +43,29 @@ class LPPMinCostFlow:
 
     def _init_lpp(self) -> inv_instance.InvLpInstance:
         s, t = self._s, self._t
-        a = LPMatrix((self._n_nodes, self._n_edges), LPValue)
+        a = LPArray((self._n_nodes, self._n_edges))
 
         for v in range(self._n_nodes):
             if v != t:
                 for w in self._graph.nodes:
                     if self._graph.has_edge(v, w):
-                        a[v][self._edge_encoder[v, w]] = 1.0
+                        a[v, self._edge_encoder[v, w]] = 1.0
                     if self._graph.has_edge(w, v):
-                        a[v][self._edge_encoder[w, v]] = -1.0
+                        a[v, self._edge_encoder[w, v]] = -1.0
 
-        b = LPVector(self._n_nodes, LPValue)
-        b[s] = np.random.randint(0, 10 * self._n_nodes)
+        b = LPArray((1, self._n_nodes))
+        b[0, s] = np.random.randint(0, 10 * self._n_nodes)
 
         # вектор стоимостей ребер
-        c = LPVector(self._n_edges, LPValue)
+        c = LPArray((1, self._n_edges))
         for v, u in self._graph.edges:
-            c[self._edge_encoder[v, u]] = self._graph[v][u]["cost"]
+            c[0, self._edge_encoder[v, u]] = self._graph[v][u]["cost"]
 
         # нижние и верхние границы переменных
-        low_b = LPVector(self._n_edges, LPValue)
-        up_b = LPVector(self._n_edges, LPValue)
+        low_b = LPArray((1, self._n_edges))
+        up_b = LPArray((1, self._n_edges))
         for v, u in self._graph.edges:
-            up_b[self._edge_encoder[v, u]] = self._graph[v][u]["capacity"]
+            up_b[0, self._edge_encoder[v, u]] = self._graph[v][u]["capacity"]
 
         return inv_instance.InvLpInstance(a, b, c, inv_instance.LpSign.Equal, low_b, up_b)
 

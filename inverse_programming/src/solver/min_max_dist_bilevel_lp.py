@@ -26,7 +26,7 @@ class MinMaxDistBilevelLpSolver:
         phi_idx = tuple(range(inst.big_c.shape[1]))
         psi_idx = tuple(range(phi_idx[-1] + 1, phi_idx[-1] + 1 + inst.big_c.shape[1]))
 
-        len_r = 2 * inst.big_c.shape[1] + 2 * inst.b.shape[0] + 2 * inst.c.shape[0]
+        len_r = 2 * inst.big_c.shape[1] + 2 * inst.b.shape[1] + 2 * inst.c.shape[1]
         a_r = np.full((len_r, ome_idx[-1] + 1), 0.0)
         b_r = np.full((len_r, o_s_idx[-1] + 1), 0.0)
         r = np.full(len_r, 0.0)
@@ -46,36 +46,36 @@ class MinMaxDistBilevelLpSolver:
         col_idx += inst.big_c.shape[1]
 
         # B * b_p - B * b_m <= b~
-        for i in range(inst.b.shape[0]):
+        for i in range(inst.b.shape[1]):
             for j in range(inst.big_b.shape[1]):
                 a_r[(col_idx + i, b_p_idx[j])] = inst.big_b[i, j]
                 a_r[(col_idx + i, b_m_idx[j])] = -inst.big_b[i, j]
-            r[col_idx + i] = inst.b[i]
-        col_idx += inst.b.shape[0]
+            r[col_idx + i] = inst.b[0, i]
+        col_idx += inst.b.shape[1]
 
         # -B * b_p + B * b_m <= -b~
-        for i in range(inst.b.shape[0]):
+        for i in range(inst.b.shape[1]):
             for j in range(inst.big_b.shape[1]):
                 a_r[(col_idx + i, b_p_idx[j])] = -inst.big_b[i, j]
                 a_r[(col_idx + i, b_m_idx[j])] = inst.big_b[i, j]
-            r[col_idx + i] = -inst.b[i]
-        col_idx += inst.b.shape[0]
+            r[col_idx + i] = -inst.b[0, i]
+        col_idx += inst.b.shape[1]
 
         # C * c_p - C * c_m <= c~
-        for i in range(inst.c.shape[0]):
+        for i in range(inst.c.shape[1]):
             for j in range(inst.big_c.shape[1]):
                 a_r[(col_idx + i, c_p_idx[j])] = inst.big_c[i, j]
                 a_r[(col_idx + i, c_m_idx[j])] = -inst.big_c[i, j]
-            r[col_idx + i] = inst.c[i]
-        col_idx += inst.c.shape[0]
+            r[col_idx + i] = inst.c[0, i]
+        col_idx += inst.c.shape[1]
 
         # -C * c_p + C * c_m <= -c~
-        for i in range(inst.c.shape[0]):
+        for i in range(inst.c.shape[1]):
             for j in range(inst.big_c.shape[1]):
                 a_r[(col_idx + i, c_p_idx[j])] = -inst.big_c[i, j]
                 a_r[(col_idx + i, c_m_idx[j])] = inst.big_c[i, j]
-            r[col_idx + i] = -inst.c[i]
-        col_idx += inst.c.shape[0]
+            r[col_idx + i] = -inst.c[0, i]
+        col_idx += inst.c.shape[1]
 
         len_s = 2 * inst.a.shape[0] + 7 * inst.a.shape[1] + 2 * inst.big_c.shape[1]
         p_r = np.full((len_s, o_s_idx[-1] + 1), 0.0)
@@ -185,7 +185,7 @@ class MinMaxDistBilevelLpSolver:
         if inst.upper_bounds is not None:
             raise NotImplementedError("Algorithm with upper bounds not implemented.")
 
-        if not (inst.lower_bounds == 0.0).all():
+        if (inst.lower_bounds != 0.0).any():
             raise ValueError("Lower bounds should be zero.")
 
         miblp_inst = self._convert_to_miblp(inst, x0, big_m)

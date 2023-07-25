@@ -1,7 +1,7 @@
 from inverse_programming.src.lpp_generator import shortest_path_gen, min_cost_flow_gen
 from inverse_programming.src.solver import inverse_lp, tools
 from inverse_programming.src.structures import inv_instance
-from inverse_programming.src.structures.inv_instance import LPVector, LPMatrix
+from inverse_programming.src.structures.inv_instance import LPArray
 
 
 def test1():
