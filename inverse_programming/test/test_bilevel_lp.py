@@ -29,8 +29,8 @@ def test1():
     b = np.array([2])
     x0 = np.array([1.21, 0.79])
 
-    big_b = np.eye(b.shape[1])
-    big_c = np.eye(c.shape[1])
+    big_b = np.eye(b.shape[0])
+    big_c = np.eye(c.shape[0])
 
     print(f"b и c - нельзя менять, x0 = {x0}")
 
@@ -180,12 +180,13 @@ def test6():
     x0, lpp = (x_1, inst_2) if res_1 > res_2 else (x_2, inst_1)
     # x0, lpp = (x_1, inst_1) if res_1 > res_2 else (x_2, inst_2)
 
+    t = 2
     b_inst = bilevel_instance.BilevelInstance(
         lpp.a,
-        lpp.b,
-        lpp.c,
-        np.eye(lpp.b.shape[1]),
-        np.eye(lpp.c.shape[1]),
+        np.random.rand(t),
+        np.random.rand(t),
+        np.random.rand(t, lpp.b.shape[1]),
+        np.random.rand(t, lpp.c.shape[1]),
         inst_1.upper_bounds)
 
     solver = bilevel_lp.BilevelLpSolver()
@@ -201,8 +202,8 @@ def test6():
     print("Минмальное значение новой ЗЛП = ", c.dot(x_3.T))
 
 
-# test1()
-# test2()
-# test3()
-# test4()
+test1()
+test2()
+test3()
+test4()
 test6()
