@@ -12,11 +12,12 @@ def test1():
     )
     solver = UniqueSoluteionSolver()
 
-    res = solver.solve(
+    x, c = solver.solve(
         inst, [0, 1]
     )
 
-    print(res)
+    # x == [0.0, 1.0]
+    # c == [1.0, 0.9999899999238551]
 
 
 test1()
