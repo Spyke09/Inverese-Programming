@@ -39,8 +39,11 @@ def model_repr(model: coptpy.Model):
         elif con.lb <= -10e29:
             s += f" <= {con.ub}"
         else:
-            ss += f"{con.lb}"
-            s += f" <= {con.ub}"
+            if con.lb == con.ub:
+                s += f" = {con.ub}"
+            else:
+                s = f"{con.lb} <= {s}"
+                s += f" <= {con.ub}"
         ss += f"{s}\n"
     return ss
 

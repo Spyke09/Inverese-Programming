@@ -19,16 +19,16 @@ class InvLpInstance:
     """
 
     def __init__(self, a, b, c, sign: LpSign, lower_bounds=None, upper_bounds=None):
-        self._c: np.array = np.array(c)
-        self._a: np.array = np.array(a)
-        self._b: np.array = np.array(b)
+        self._c: np.array = np.array(c, dtype=float)
+        self._a: np.array = np.array(a, dtype=float)
+        self._b: np.array = np.array(b, dtype=float)
         self._upper_bounds: tp.Optional[np.array] = None
         self._lower_bounds: tp.Optional[np.array] = None
         self.sign: LpSign = sign
         if upper_bounds is not None:
-            self._upper_bounds = np.array(upper_bounds)
+            self._upper_bounds = np.array(upper_bounds, dtype=float)
         if lower_bounds is not None:
-            self._lower_bounds = np.array(lower_bounds)
+            self._lower_bounds = np.array(lower_bounds, dtype=float)
 
     @property
     def a(self) -> np.array:
