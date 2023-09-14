@@ -6,18 +6,19 @@ def test1():
     inst = InvLpInstance(
         a=[[1, 1]],
         b=[1],
-        c=[1, 2],
+        c=[1, 1],
         sign=LpSign.Equal,
-        lower_bounds=[0, 0]
+        lower_bounds=[0, 0],
     )
     solver = UniqueSoluteionSolver()
 
     x, c = solver.solve(
-        inst, [0, 1]
+        inst, [0, 1], eps=10e-6
     )
+    print((x, c))
 
     # x == [0.0, 1.0]
-    # c == [1.0, 0.9999899999238551]
+    # c == [0.999999999923855, 0.9999899999238551]
 
 
 test1()
