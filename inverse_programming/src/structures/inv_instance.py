@@ -79,3 +79,27 @@ class InvLpInstance:
                 return InvLpInstance(self.a, self.b, self.c, self.sign, self.lower_bounds, self.upper_bounds)
         else:
             raise NotImplementedError("Not implemented convert.")
+
+    def hide_upper_bounds(self):
+        if self.sign != LpSign.Equal:
+            raise NotImplementedError("Not implemented convert.")
+
+        n, m = self.a.shape
+        a = np.full((n + m, 2 * m), 0.0)
+        for i in range(n):
+            for j in range(m):
+                a[i, j] = self.a[i, j]
+
+        for i in range(m):
+            a[i + n, i] = 1.0
+            a[i + n, m + i] = 1.0
+
+        b = np.concatenate([self.b, self.upper_bounds])
+
+        c = np.concatenate([self.c, np.full(m, 0.0)])
+
+        self._a = a
+        self._c = c
+        self._b = b
+        self._upper_bounds = None
+        self._lower_bounds = np.full(self.a.shape[1], 0.0)

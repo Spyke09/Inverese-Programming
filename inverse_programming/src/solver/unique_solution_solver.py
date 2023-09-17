@@ -2,15 +2,14 @@ import logging
 
 import coptpy
 
-import MIBLP.src.tools
 import inverse_programming.src.config.config as config
 from inverse_programming.src.structures import inv_instance
 
 
-class UniqueSoluteionSolver:
+class UniqueSolutionSolver:
     def __init__(self):
         self._envr = coptpy.Envr()
-        self._logger = logging.getLogger("MIBLPSolver")
+        self._logger = logging.getLogger("UniqueSolutionSolver")
 
     def solve(self, inst: inv_instance.InvLpInstance, x0, big_m=1000000, eps=10e-6):
         if inst.upper_bounds is not None:
@@ -63,7 +62,7 @@ class UniqueSoluteionSolver:
             for i in range(n)
         )
 
-        # ATy + psi <= c
+        # ATy <= c
         model.addConstrs(
             sum(inst.a[i, j] * y[i] for i in range(n)) <= c[j]
             for j in range(m)
@@ -95,6 +94,7 @@ class UniqueSoluteionSolver:
         model.addConstrs(-ome2[i] <= c[i] - inst.c[i] for i in range(m))
         model.addConstrs(c[i] - inst.c[i] <= ome2[i] for i in range(m))
 
+        self._logger.info("Model is created.")
         return model
 
 
