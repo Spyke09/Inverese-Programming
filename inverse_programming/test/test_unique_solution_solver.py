@@ -13,7 +13,7 @@ def test1():
     solver = UniqueSoluteionSolver()
 
     x, c = solver.solve(
-        inst, [0, 1], eps=10e-6
+        inst, [0, 1], eps=10e-6, big_m=10e20
     )
     print((x, c))
 

@@ -47,7 +47,6 @@ class UniqueSoluteionSolver:
         c = model.addVars(range(m), vtype=coptpy.COPT.CONTINUOUS, nameprefix="c")
         ome1 = model.addVars(range(m), vtype=coptpy.COPT.CONTINUOUS, nameprefix="ome1")
         ome2 = model.addVars(range(m), vtype=coptpy.COPT.CONTINUOUS, nameprefix="ome2")
-        psi = model.addVars(range(m), vtype=coptpy.COPT.CONTINUOUS, nameprefix="psi", lb=0.0)
         lam = model.addVars(range(n + m), vtype=coptpy.COPT.BINARY, nameprefix="lam")
         gam = model.addVars(range(n), vtype=coptpy.COPT.BINARY, nameprefix="gam")
         phi = model.addVars(range(m), vtype=coptpy.COPT.BINARY, nameprefix="phi")
@@ -64,9 +63,9 @@ class UniqueSoluteionSolver:
             for i in range(n)
         )
 
-        # ATy + psi == c
+        # ATy + psi <= c
         model.addConstrs(
-            sum(inst.a[i, j] * y[i] for i in range(n)) + psi[j] == c[j]
+            sum(inst.a[i, j] * y[i] for i in range(n)) <= c[j]
             for j in range(m)
         )
 
@@ -85,7 +84,7 @@ class UniqueSoluteionSolver:
         # counting
         model.addConstrs(y[i] >= lam[i + m] * eps - gam[i] * big_m for i in range(n))
         model.addConstrs(y[i] <= -lam[i + m] * eps + (1 - gam[i]) * big_m for i in range(n))
-        model.addConstrs(psi[i] >= lam[i] * eps for i in range(m))
+        model.addConstrs(c[j] - sum(inst.a[i, j] * y[i] for i in range(n)) >= lam[j] * eps for j in range(m))
         model.addConstr(sum(lam[i] for i in range(n + m)) == m)
 
         # for objective
