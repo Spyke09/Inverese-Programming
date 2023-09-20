@@ -19,29 +19,61 @@ def test1():
     )
     solver = UniqueSolutionSolver()
 
-    x, c = solver.solve(
-        inst, [0, 1], eps=10e-6, big_m=10e20
+    x, c, y, phi, lam = solver.solve(
+        inst, [0.0, 1.0], eps=10e-5, big_m=10e5
     )
-    print((x, c))
-
-    # x == [0.0, 1.0]
-    # c == [0.999999999923855, 0.9999899999238551]
+    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
 
 
 def test2():
-    sp = min_cost_flow_gen.LPPMinCostFlow(100, 50)
+    inst = InvLpInstance(
+        a=[[1, 1]],
+        b=[1.5],
+        c=[1, 1],
+        sign=LpSign.Equal,
+        lower_bounds=[0, 0],
+        upper_bounds=[1, 1],
+    )
+    solver = UniqueSolutionSolver()
+
+    x, c, y, phi, lam = solver.solve(
+        inst, [0.5, 1.1], eps=10e-5, big_m=10e5
+    )
+    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
+
+
+def test1_prikol():
+    inst = InvLpInstance(
+        a=[[1, 1]],
+        b=[1],
+        c=[1, 1],
+        sign=LpSign.Equal,
+        lower_bounds=[0, 0],
+    )
+    solver = UniqueSolutionSolver()
+
+    x, c, y, phi, lam = solver.solve(
+        inst, [0.5, 0.5], eps=10e-2, big_m=10e3
+    )
+    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
+
+
+def test3():
+    sp = min_cost_flow_gen.LPPMinCostFlow(200, 100)
     inst = sp.lpp
-    inst.hide_upper_bounds()
 
     n, m = inst.a.shape
 
     solver = UniqueSolutionSolver()
 
-    x, c = solver.solve(
+    x, c, y, phi, lam = solver.solve(
         inst, np.full(m, 0.0), eps=10e-6, big_m=10e20
     )
-    print((x, c))
+
+    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
 
 
 # test1()
-test2()
+# test1_prikol()
+# test2()
+test3()
