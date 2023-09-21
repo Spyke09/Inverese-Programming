@@ -1,10 +1,9 @@
 import logging
 
 import coptpy
-
+import numpy as np
 import inverse_programming.src.config.config as config
 from inverse_programming.src.structures import inv_instance
-from MIBLP.src.tools import model_repr
 
 
 class UniqueSolutionSolver:
@@ -34,25 +33,40 @@ class UniqueSolutionSolver:
         x = list()
         for i in range(inst.a.shape[1]):
             x.append(model.getVarByName(f"x({i})").getInfo("value"))
-            res["x"] = x
+        res["x"] = np.array(x)
+
+        y1 = list()
+        for i in range(inst.a.shape[0]):
+            y1.append(model.getVarByName(f"y1({i})").getInfo("value"))
+        res["y1"] = np.array(y1)
 
         if obj[0]:
             c = list()
             for i in range(inst.a.shape[1]):
                 c.append(model.getVarByName(f"c({i})").getInfo("value"))
-                res["c"] = c
+            res["c"] = np.array(c)
 
         if inst.lower_bounds is not None and obj[1]:
             l = list()
             for i in range(inst.a.shape[1]):
                 l.append(model.getVarByName(f"l({i})").getInfo("value"))
-                res["l"] = l
+            res["l"] = np.array(l)
 
         if inst.upper_bounds is not None and obj[2]:
             u = list()
             for i in range(inst.a.shape[1]):
                 u.append(model.getVarByName(f"u({i})").getInfo("value"))
-                res["u"] = u
+            res["u"] = np.array(u)
+
+        if inst.upper_bounds is not None and inst.lower_bounds is not None:
+            y2 = list()
+            for i in range(inst.a.shape[1]):
+                y2.append(model.getVarByName(f"y2({i})").getInfo("value"))
+            res["y2"] = np.array(y2)
+            # inst.a.T @ y1 + y2 - true_c
+            res["y3"] = inst.a.T @ y1 + res["y2"] - (res["c"] if "c" in res else inst.c)
+        else:
+            res["y2"] = inst.a.T @ y1 - (res["c"] if "c" in res else inst.c)
 
         return res
 

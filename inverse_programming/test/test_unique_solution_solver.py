@@ -5,7 +5,7 @@ import numpy as np
 from inverse_programming.src.lpp_generator import min_cost_flow_gen
 from inverse_programming.src.solver.unique_solution_solver import UniqueSolutionSolver
 from inverse_programming.src.structures.inv_instance import InvLpInstance, LpSign
-
+from inverse_programming.src import tools
 logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S', level=logging.DEBUG)
 
 
@@ -24,6 +24,16 @@ def test1():
         inst, [0.0, 1.0], [1, 1, 1], eps=10e-2, big_m=10e2
     )
     print(res)
+    new_inst = InvLpInstance(
+        inst.a,
+        inst.b,
+        res["c"] if "c" in res else inst.c,
+        LpSign.Equal,
+        res["l"] if "l" in res else inst.lower_bounds,
+        res["u"] if "u" in res else inst.upper_bounds,
+    )
+    print("Optimal: ", tools.check_optimal_q(new_inst, res))
+    print("Unique optimal: ", tools.check_optimal_unique_q(new_inst, res))
 
 
 def test2():
