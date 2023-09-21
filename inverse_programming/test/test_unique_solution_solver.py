@@ -10,6 +10,7 @@ logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S
 
 
 def test1():
+    eps = 10e-5
     inst = InvLpInstance(
         a=[[1, 1]],
         b=[1],
@@ -21,7 +22,7 @@ def test1():
     solver = UniqueSolutionSolver()
 
     res = solver.solve(
-        inst, [0.0, 1.0], [1, 1, 1], eps=10e-2, big_m=10e2
+        inst, [0.0, 1.0], [0, 0, 1], eps=eps, big_m=10e2
     )
     print(res)
     new_inst = InvLpInstance(
@@ -32,8 +33,8 @@ def test1():
         res["l"] if "l" in res else inst.lower_bounds,
         res["u"] if "u" in res else inst.upper_bounds,
     )
-    print("Optimal: ", tools.check_optimal_q(new_inst, res))
-    print("Unique optimal: ", tools.check_optimal_unique_q(new_inst, res))
+    print("Optimal: ", tools.check_optimal_q(new_inst, res, eps=eps))
+    print("Unique optimal: ", tools.check_optimal_unique_q(new_inst, res, eps=eps))
 
 
 def test2():
