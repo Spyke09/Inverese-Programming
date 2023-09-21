@@ -16,13 +16,14 @@ def test1():
         c=[1, 1],
         sign=LpSign.Equal,
         lower_bounds=[0, 0],
+        upper_bounds=[1, 1],
     )
     solver = UniqueSolutionSolver()
 
-    x, c, y, phi, lam = solver.solve(
-        inst, [0.0, 1.0], eps=10e-5, big_m=10e5
+    res = solver.solve(
+        inst, [0.0, 1.0], [1, 1, 1], eps=10e-2, big_m=10e2
     )
-    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
+    print(res)
 
 
 def test2():
@@ -36,26 +37,10 @@ def test2():
     )
     solver = UniqueSolutionSolver()
 
-    x, c, y, phi, lam = solver.solve(
-        inst, [0.5, 1.1], eps=10e-5, big_m=10e5
+    res = solver.solve(
+        inst, [0.0, 1.0], [1, 0, 0], eps=10e-5, big_m=10e5
     )
-    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
-
-
-def test1_prikol():
-    inst = InvLpInstance(
-        a=[[1, 1]],
-        b=[1],
-        c=[1, 1],
-        sign=LpSign.Equal,
-        lower_bounds=[0, 0],
-    )
-    solver = UniqueSolutionSolver()
-
-    x, c, y, phi, lam = solver.solve(
-        inst, [0.5, 0.5], eps=10e-2, big_m=10e3
-    )
-    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
+    print(res)
 
 
 def test3():
@@ -66,14 +51,14 @@ def test3():
 
     solver = UniqueSolutionSolver()
 
-    x, c, y, phi, lam = solver.solve(
-        inst, np.full(m, 0.0), eps=10e-6, big_m=10e20
+    res = solver.solve(
+        inst, [0.0, 1.0], [1, 0, 0], eps=10e-5, big_m=10e5
     )
+    print(res)
 
-    print(f"x = {x}\ny = {y}\nc = {c}\nc-ATy = {inst.c - inst.a.T @ y}\nphi = {phi}\nlam = {lam}")
 
 
-# test1()
-# test1_prikol()
+
+test1()
 # test2()
-test3()
+# test3()
