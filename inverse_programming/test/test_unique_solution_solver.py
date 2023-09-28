@@ -16,7 +16,7 @@ def test1():
         b=[1],
         c=[1, 1],
         sign=LpSign.Equal,
-        # lower_bounds=[0, 0],
+        lower_bounds=[0, 0],
         upper_bounds=[1, 1],
     )
     solver = UniqueSolutionSolver()
