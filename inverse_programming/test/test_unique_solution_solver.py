@@ -10,7 +10,7 @@ logging.basicConfig(format='[%(name)s]: %(message)s', datefmt='%m.%d.%Y %H:%M:%S
 
 
 def test1():
-    eps = 10e-2
+    eps = 10e-3
     inst = InvLpInstance(
         a=[[1, 1]],
         b=[1],
@@ -21,10 +21,10 @@ def test1():
     )
     solver = UniqueSolutionSolver()
 
-    res = solver.solve(
-        inst, [0.0, 1.0], [0, 0, 1], eps=eps, big_m=10e2
+    solver.solve(
+        inst, [0.0, 1.0], [0, 1, 0], [], eps=eps, big_m=10e2
     )
-    print(res)
+    print(solver.get_values_by_names(["x", "c", "u", 'l']))
 
 
 def test2():
@@ -38,26 +38,24 @@ def test2():
     )
     solver = UniqueSolutionSolver()
 
-    res = solver.solve(
+    solver.solve(
         inst, [0.0, 1.0], [1, 0, 0], eps=10e-5, big_m=10e5
     )
-    print(res)
+    print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
 
 def test3():
-    sp = min_cost_flow_gen.LPPMinCostFlow(200, 100)
+    sp = min_cost_flow_gen.LPPMinCostFlow(100, 50)
     inst = sp.lpp
 
     n, m = inst.a.shape
 
     solver = UniqueSolutionSolver()
 
-    res = solver.solve(
-        inst, [0.0, 1.0], [1, 0, 0], eps=10e-5, big_m=10e5
+    solver.solve(
+        inst, np.full(sp.edges_number(), 0.0), [1, 0, 10], [], eps=10e-5, big_m=10e5
     )
-    print(res)
-
-
+    print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
 
 test1()

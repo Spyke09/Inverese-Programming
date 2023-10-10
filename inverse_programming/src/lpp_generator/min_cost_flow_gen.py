@@ -94,3 +94,6 @@ class LPPMinCostFlow:
     @property
     def sink(self):
         return self._t
+
+    def edges_number(self):
+        return len(self._graph.edges)
