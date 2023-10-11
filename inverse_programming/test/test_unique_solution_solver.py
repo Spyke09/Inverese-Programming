@@ -22,7 +22,7 @@ def test1():
     solver = UniqueSolutionSolver()
 
     solver.solve(
-        inst, [0.0, 1.0], [0, 1, 0], [], eps=eps, big_m=10e2
+        inst, [0.0, 1.0], [0, 0, 1], [], eps=eps, big_m=10e2
     )
     print(solver.get_values_by_names(["x", "c", "u", 'l']))
 
