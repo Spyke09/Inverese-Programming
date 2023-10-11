@@ -2,6 +2,8 @@ import logging
 
 import coptpy
 import numpy as np
+from collections import defaultdict
+import MIBLP.src.tools
 import inverse_programming.src.config.config as config
 from inverse_programming.src.structures import inv_instance
 
@@ -11,7 +13,7 @@ class UniqueSolutionSolver:
         self._envr = coptpy.Envr()
         self._logger = logging.getLogger("UniqueSolutionSolver")
 
-    def solve(self, inst: inv_instance.InvLpInstance, x0, obj, mask, big_m=1000000, eps=10e-6):
+    def solve(self, inst: inv_instance.InvLpInstance, x0, obj, mask=None, big_m=1000000, eps=10e-6):
         if inst.sign != inv_instance.LpSign.Equal:
             raise ValueError("Sign should be 'equal'.")
 
@@ -32,26 +34,45 @@ class UniqueSolutionSolver:
         n = self._vars_number(name)
         return np.array([self.model.getVarByName(f"{name}({i})").getInfo("value") for i in range(n)])
 
-    def _create_model_bounds(self, inst: inv_instance.InvLpInstance, x0, obj, mask, big_m=10e6, eps=10e-6):
+    @staticmethod
+    def _get_p_q(inst: inv_instance.InvLpInstance, mask):
+        x, y = np.where(inst.a != 0)
+        d = defaultdict(set)
+        for i in range(x.shape[0]):
+            d[x[i]].add(y[i])
+
+        old_mask = set(mask)
+        new_mask = set()
+        q = list()
+        for i, j in d.items():
+            if j.intersection(old_mask):
+                new_mask.update(j)
+                q.append(i)
+        return np.array(sorted(new_mask)), len(new_mask), np.array(q)
+
+    def _create_model_bounds(self, inst: inv_instance.InvLpInstance, x0, obj, mask=None, big_m=10e6, eps=10e-6):
+        n, m = inst.a.shape
         o = [None, inst.lower_bounds is not None, inst.upper_bounds is not None]
+        mask = np.array(mask) if mask is not None else np.arange(m)
+        mask, k, q = self._get_p_q(inst, mask)
+
         model: coptpy.Model = self._envr.createModel(name="Model")
         self.model = model
         model.setParam(coptpy.COPT.Param.Logging, config.COPT_LOG_LEVEL)
-        n, m = inst.a.shape
-        k = sum(mask)
 
         x = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x")
         y1 = model.addMVar(n, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y1")
         y2 = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y2", lb=0.0) if o[1] else np.full(m, 0.0)
         y3 = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y3", lb=0.0) if o[2] else np.full(m, 0.0)
 
-        lam1 = model.addMVar(n, vtype=coptpy.COPT.BINARY, nameprefix="lam1")
-        lam2 = model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="lam2")
-        lam3 = model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="lam3") if o[1] else np.full(m, 0.0)
-        lam4 = model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="lam4") if o[2] else np.full(m, 0.0)
+        lam0 = model.addMVar(k, vtype=coptpy.COPT.BINARY, nameprefix="lam0")
+        lam1 = model.addMVar(q.shape[0], vtype=coptpy.COPT.BINARY, nameprefix="lam1")
+        lam2 = model.addMVar(k, vtype=coptpy.COPT.BINARY, nameprefix="lam3") if o[1] else np.full(m, 0.0)
+        lam3 = model.addMVar(k, vtype=coptpy.COPT.BINARY, nameprefix="lam4") if o[2] else np.full(m, 0.0)
+
         kkt1 = model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="kkt1")
 
-        gam = model.addMVar(n, vtype=coptpy.COPT.BINARY, nameprefix="gam")
+        gam = model.addMVar(q.shape[0], vtype=coptpy.COPT.BINARY, nameprefix="gam")
 
         true_c = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="c") if obj[0] else inst.c
         true_l = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="l") if obj[1] else inst.lower_bounds
@@ -68,10 +89,10 @@ class UniqueSolutionSolver:
         model.addConstrs(x <= (1 - kkt1) * big_m)
 
         # counting
-        model.addConstrs(y1 >= eps * lam1 - big_m * gam)  # !!!
-        model.addConstrs(y1 <= -eps * lam1 + big_m * (1 - gam))  # !!!
-        model.addConstrs(true_c - inst.a.T @ y1 - y2 + y3 >= eps * lam2)  # !!!
-        model.addConstrs(lam1.sum() + lam2.sum() + lam3.sum() + lam4.sum() == m)
+        model.addConstrs(true_c[mask] - inst.a.T[mask] @ y1 - y2[mask] + y3[mask] >= eps * lam0)  # !!!
+        model.addConstrs(y1[q] >= eps * lam1 - big_m * gam)  # !!!
+        model.addConstrs(y1[q] <= -eps * lam1 + big_m * (1 - gam))  # !!!
+        model.addConstrs(lam1.sum() + lam0.sum() + lam2.sum() + lam3.sum() == k)
 
         # for cases with boundaries
         if o[1]:
@@ -81,7 +102,7 @@ class UniqueSolutionSolver:
             model.addConstrs(y2 <= kkt2 * big_m)
             model.addConstrs(x - true_l <= (1 - kkt2) * big_m)
 
-            model.addConstrs(y2 >= eps * lam3)  # !!!
+            model.addConstrs(y2[mask] >= eps * lam2)  # !!!
         if o[2]:
             model.addConstrs(x <= true_u)
 
@@ -89,7 +110,7 @@ class UniqueSolutionSolver:
             model.addConstrs(y3 <= kkt3 * big_m)
             model.addConstrs(true_u - x <= (1 - kkt3) * big_m)
 
-            model.addConstrs(y3 >= eps * lam4)  # !!!
+            model.addConstrs(y3[mask] >= eps * lam3)  # !!!
 
         # for objective
         sum_ = self._create_abs_constraint(x - x0, "ome_x").sum()
