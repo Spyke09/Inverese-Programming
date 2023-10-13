@@ -92,8 +92,8 @@ class UniqueSolutionSolver:
         model.addConstrs(inst.a.T @ y1 + y2 - true_c >= 0)
 
         # counting
-        model.addConstrs(y1[q] >= eps * lam1 - big_m * gam)  # !!!
-        model.addConstrs(y1[q] <= -eps * lam1 + big_m * (1 - gam))  # !!!
+        model.addConstrs(y1[q] >= eps * lam1 - big_m * gam)
+        model.addConstrs(y1[q] <= -eps * lam1 + big_m * (1 - gam))
         model.addConstrs(lam1.sum() + lam2.sum() + lam3.sum() == k)
 
         # for cases with boundaries
@@ -104,7 +104,7 @@ class UniqueSolutionSolver:
             model.addConstrs(y2 <= kkt2 * big_m)
             model.addConstrs(x - true_l <= (1 - kkt2) * big_m)
 
-            model.addConstrs(y2[mask] >= eps * lam2)  # !!!
+            model.addConstrs(y2[mask] >= eps * lam2)
         if o[2]:
             model.addConstrs(x <= true_u)
 
@@ -113,7 +113,8 @@ class UniqueSolutionSolver:
             model.addConstrs(inst.a.T @ y1 + y2 - true_c <= kkt3 * big_m)
             model.addConstrs(true_u - x <= (1 - kkt3) * big_m)
 
-            model.addConstrs((inst.a.T @ y1 + y2 - true_c)[mask] >= eps * lam3)  # !!!
+            # model.addConstrs(y3[mask] >= eps * lam3)
+            model.addConstrs((inst.a.T @ y1 + y2 - true_c)[mask] >= eps * lam3)
 
         # for objective
         sum_ = self._create_abs_constraint(x - x0, "ome_x").sum()
