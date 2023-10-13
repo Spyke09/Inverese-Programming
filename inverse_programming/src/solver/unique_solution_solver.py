@@ -72,7 +72,7 @@ class UniqueSolutionSolver:
         x = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="x", lb=-coptpy.COPT.INFINITY)
         y1 = model.addMVar(n, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y1", lb=-coptpy.COPT.INFINITY)
         y2 = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y2", lb=0.0) if o[1] else np.full(m, 0.0)
-        y3 = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y3", lb=0.0) if o[2] else np.full(m, 0.0)
+        # y3 = model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y3", lb=0.0) if o[2] else np.full(m, 0.0)
 
         lam1 = model.addMVar(q.shape[0], vtype=coptpy.COPT.BINARY, nameprefix="lam1")
         lam2 = model.addMVar(k, vtype=coptpy.COPT.BINARY, nameprefix="lam2") if o[1] else np.full(m, 0.0)
@@ -88,7 +88,8 @@ class UniqueSolutionSolver:
         model.addConstrs(inst.a @ x == inst.b)
 
         # dual constraints
-        model.addConstrs(inst.a.T @ y1 + y2 - y3 == true_c)
+        # model.addConstrs(inst.a.T @ y1 + y2 - y3 == true_c)
+        model.addConstrs(inst.a.T @ y1 + y2 - true_c >= 0)
 
         # counting
         model.addConstrs(y1[q] >= eps * lam1 - big_m * gam)  # !!!
@@ -108,10 +109,11 @@ class UniqueSolutionSolver:
             model.addConstrs(x <= true_u)
 
             kkt3 = model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="kkt3")
-            model.addConstrs(y3 <= kkt3 * big_m)
+            # model.addConstrs(y3 <= kkt3 * big_m)
+            model.addConstrs(inst.a.T @ y1 + y2 - true_c <= kkt3 * big_m)
             model.addConstrs(true_u - x <= (1 - kkt3) * big_m)
 
-            model.addConstrs(y3[mask] >= eps * lam3)  # !!!
+            model.addConstrs((inst.a.T @ y1 + y2 - true_c)[mask] >= eps * lam3)  # !!!
 
         # for objective
         sum_ = self._create_abs_constraint(x - x0, "ome_x").sum()
