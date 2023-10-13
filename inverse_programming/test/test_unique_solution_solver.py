@@ -64,16 +64,15 @@ def test4():
     sp = min_cost_flow_gen.LPPMinCostFlow(100, 50)
     inst = sp.lpp
 
-    n, m = inst.a.shape
-
     solver = UniqueSolutionSolver()
 
     solver.solve(
-        inst, np.full(sp.edges_number(), 0.0), [1, 0, 10], [], eps=10e-5, big_m=10e5
+        inst, np.full(sp.edges_number(), 0.0), [1, 0, 1], [], eps=10e-5, big_m=10e5
     )
     print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
 
-test1()
+# test1()
 # test2()
-test3()
+# test3()
+test4()
