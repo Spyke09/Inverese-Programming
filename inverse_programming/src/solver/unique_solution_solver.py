@@ -88,8 +88,11 @@ class UniqueSolutionSolver:
         model.addConstrs(inst.a @ x == inst.b)
 
         # dual constraints
-        # model.addConstrs(inst.a.T @ y1 + y2 - y3 == true_c)
-        model.addConstrs(inst.a.T @ y1 + y2 - true_c >= 0)
+        if o[2]:
+            model.addConstrs(inst.a.T @ y1 + y2 - true_c >= 0)
+        else:
+            model.addConstrs(inst.a.T @ y1 + y2 == true_c)
+
 
         # counting
         model.addConstrs(y1[q] >= eps * lam1 - big_m * gam)

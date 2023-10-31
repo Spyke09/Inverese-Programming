@@ -17,7 +17,7 @@ def test1():
         c=[1, 1],
         sign=LpSign.Equal,
         lower_bounds=[0, 0],
-        # upper_bounds=[1, 1],
+        upper_bounds=[1, 1],
     )
     solver = UniqueSolutionSolver()
 
@@ -72,7 +72,7 @@ def test4():
     print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
 
-# test1()
+test1()
 # test2()
 # test3()
-test4()
+# test4()
