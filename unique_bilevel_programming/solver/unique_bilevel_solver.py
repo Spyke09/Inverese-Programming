@@ -56,13 +56,15 @@ class UBSolver:
             self,
             inst: UBInstance,
             weights,
+            unique_idx=None
     ):
         """
         Метод решающий данную задачу UBInv с заданными весами минимизации.
         :param inst: экземпляр задачи UBInv
         :param weights: отображение вида `"x" -> w_x`, такое, что w_x будет множителем
                         в целевой функции у отклонения, т.е. w_x * ||x - x0||.
-        :return статус решения из солвера copt.
+        :param unique_idx: индексы переменных, которые нужно сделать ункальными.
+        :return: статус решения из солвера copt.
         """
         self._inst = inst
         self._weights = self._preprocess_weights(inst, weights)
@@ -99,33 +101,42 @@ class UBSolver:
             x = self._inst.x0
 
         y = self.model.addMVar(n, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y", lb=-coptpy.COPT.INFINITY)
-        y_lb = self.model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y_lb", lb=0.0)
+        if self._weights["l"] != SpWeights.Blank:
+            y_lb = self.model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="y_lb", lb=0.0)
+        else:
+            y_lb = np.full(m, 0.0)
 
         # y_ub не создаем, так как он может быть однозначно выражен
-        # y3 = inst.A.T @ y1 + y2 - c >= 0
+        # y3 = inst.A.T @ y + y_lb - c >= 0
 
         l1 = self.model.addMVar(n, vtype=coptpy.COPT.BINARY, nameprefix="l1")
-        l2 = self.model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="l2")
-        l3 = self.model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="l3")
+        if self._weights["l"] != SpWeights.Blank:
+            l2 = self.model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="l2")
+        else:
+            l2 = np.full(m, 0.0)
+        if self._weights["u"] != SpWeights.Blank:
+            l3 = self.model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="l3")
+        else:
+            l3 = np.full(m, 0.0)
 
         g = self.model.addMVar(n, vtype=coptpy.COPT.BINARY, nameprefix="g")
 
-        if self._weights["c"] != SpWeights.Infinity:
+        if SpWeights.usual_q(self._weights["c"]):
             c = self.model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="c", lb=-coptpy.COPT.INFINITY)
         else:
             c = self._inst.c0
 
-        if self._weights["b"] != SpWeights.Infinity:
+        if SpWeights.usual_q(self._weights["b"]):
             b = self.model.addMVar(n, vtype=coptpy.COPT.CONTINUOUS, nameprefix="b", lb=-coptpy.COPT.INFINITY)
         else:
             b = self._inst.b0
 
-        if self._weights["l"] != SpWeights.Infinity:
+        if SpWeights.usual_q(self._weights["l"]):
             l = self.model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="l", lb=-coptpy.COPT.INFINITY)
         else:
             l = self._inst.l0
 
-        if self._weights["u"] != SpWeights.Infinity:
+        if SpWeights.usual_q(self._weights["u"]):
             u = self.model.addMVar(m, vtype=coptpy.COPT.CONTINUOUS, nameprefix="u", lb=-coptpy.COPT.INFINITY)
         else:
             u = self._inst.u0
@@ -141,7 +152,10 @@ class UBSolver:
         else:
             self.model.addConstrs(self._inst.A @ x == b)
 
-        self.model.addConstrs(self._inst.A.T @ y + y_lb - c >= 0)
+        if self._weights["u"] != SpWeights.Blank:
+            self.model.addConstrs(self._inst.A.T @ y + y_lb - c >= 0)
+        else:
+            self.model.addConstrs(self._inst.A.T @ y + y_lb - c == 0)
 
         if self._weights["l"] != SpWeights.Blank:
             if self._weights["x"] == SpWeights.Infinity and self._weights["l"] == SpWeights.Infinity:
@@ -216,15 +230,15 @@ class UBSolver:
     def _set_objective(self, v):
         x, y, y_lb, l1, l2, l3, g, c, l, u, b = v
         weighed_obj_sum_ = 0
-        if SpWeights.usual_q(self._weights["x"]):
+        if SpWeights.usual_q(self._weights["x"]) and self._weights["x"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(x - self._inst.x0, "ome_x").sum() * self._weights["x"]
-        if SpWeights.usual_q(self._weights["b"]):
+        if SpWeights.usual_q(self._weights["b"]) and self._weights["b"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(b - self._inst.b0, "ome_b").sum() * self._weights["b"]
-        if SpWeights.usual_q(self._weights["c"]):
+        if SpWeights.usual_q(self._weights["c"]) and self._weights["c"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(c - self._inst.c0, "ome_c").sum() * self._weights["c"]
-        if SpWeights.usual_q(self._weights["l"]):
+        if SpWeights.usual_q(self._weights["l"]) and self._weights["l"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(l - self._inst.l0, "ome_l").sum() * self._weights["l"]
-        if SpWeights.usual_q(self._weights["u"]):
+        if SpWeights.usual_q(self._weights["u"]) and self._weights["u"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(u - self._inst.u0, "ome_u").sum() * self._weights["u"]
 
         self.model.setObjective(weighed_obj_sum_, coptpy.COPT.MINIMIZE)
