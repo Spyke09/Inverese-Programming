@@ -57,6 +57,13 @@ class UBSolver:
             inst: UBInstance,
             weights,
     ):
+        """
+        Метод решающий данную задачу UBInv с заданными весами минимизации.
+        :param inst: экземпляр задачи UBInv
+        :param weights: отображение вида `"x" -> w_x`, такое, что w_x будет множителем
+                        в целевой функции у отклонения, т.е. w_x * ||x - x0||.
+        :return статус решения из солвера copt.
+        """
         self._inst = inst
         self._weights = self._preprocess_weights(inst, weights)
         self._create_model()
@@ -64,7 +71,7 @@ class UBSolver:
         self.model.solve()
         if self.model.status != coptpy.COPT.OPTIMAL:
             self._logger.info("Master problem is infeasible.")
-            raise ValueError("Master problem should be feasible")
+        return self.model.status
 
     def _create_abs_constraint(self, x, name):
         omega = self.model.addMVar(x.shape[0], vtype=coptpy.COPT.CONTINUOUS, nameprefix=name)

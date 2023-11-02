@@ -12,11 +12,11 @@ inst_1 = UBInstance(
     l0=[0, 0],
     u0=[1, 1],
 )
-weigths_1_0 = {"c": 1}
-weigths_1_1 = {"u": 1}
-weigths_1_2 = {"l": 1}
-weigths_1_3 = {"x": 1, "b": 20}
-weigths_1_4 = {"x": 20, "b": 1}
+weights_1_0 = {"c": 1}
+weights_1_1 = {"u": 1}
+weights_1_2 = {"l": 1}
+weights_1_3 = {"x": 1, "b": 20}
+weights_1_4 = {"x": 20, "b": 1}
 
 
 def equal_q_f_p(a, b, eps=10e-7):
@@ -25,8 +25,8 @@ def equal_q_f_p(a, b, eps=10e-7):
 
 def test_simple_instance_c():
     solver = UBSolver(eps=10e-2, big_m=10e2)
-    solver.solve(inst_1, weigths_1_0)
-    answer = solver.get_values_by_names(weigths_1_0.keys())
+    solver.solve(inst_1, weights_1_0)
+    answer = solver.get_values_by_names(weights_1_0.keys())
 
     assert "x" not in answer
     assert answer["c"][0] != answer["c"][1]
@@ -37,9 +37,9 @@ def test_simple_instance_c():
 
 def test_simple_instance_u():
     solver = UBSolver(eps=10e-2, big_m=10e2)
-    solver.solve(inst_1, weigths_1_1)
+    solver.solve(inst_1, weights_1_1)
 
-    answer = solver.get_values_by_names(weigths_1_1.keys())
+    answer = solver.get_values_by_names(weights_1_1.keys())
     assert "x" not in answer
     assert "c" not in answer
     assert equal_q_f_p(answer["u"][0], 0) and equal_q_f_p(answer["u"][1], 1)
@@ -49,9 +49,9 @@ def test_simple_instance_u():
 
 def test_simple_instance_l():
     solver = UBSolver(eps=10e-2, big_m=10e2)
-    solver.solve(inst_1, weigths_1_2)
+    solver.solve(inst_1, weights_1_2)
 
-    answer = solver.get_values_by_names(weigths_1_2.keys())
+    answer = solver.get_values_by_names(weights_1_2.keys())
     assert "x" not in answer
     assert "c" not in answer
     assert "b" not in answer
@@ -61,9 +61,9 @@ def test_simple_instance_l():
 
 def test_simple_instance_b():
     solver = UBSolver(eps=10e-2, big_m=10e2)
-    solver.solve(inst_1, weigths_1_3)
+    solver.solve(inst_1, weights_1_3)
 
-    answer = solver.get_values_by_names(weigths_1_3.keys())
+    answer = solver.get_values_by_names(weights_1_3.keys())
     assert equal_q_f_p(answer["x"][0], 0) and equal_q_f_p(answer["x"][1], 0)
     assert "c" not in answer
     assert equal_q_f_p(answer["b"][0], 0)
@@ -73,9 +73,9 @@ def test_simple_instance_b():
 
 def test_simple_instance_b_2():
     solver = UBSolver(eps=10e-2, big_m=10e2)
-    solver.solve(inst_1, weigths_1_4)
+    solver.solve(inst_1, weights_1_4)
 
-    answer = solver.get_values_by_names(weigths_1_4.keys())
+    answer = solver.get_values_by_names(weights_1_4.keys())
     assert equal_q_f_p(answer["x"][0], 1) and equal_q_f_p(answer["x"][1], 1)
     assert "c" not in answer
     assert equal_q_f_p(answer["b"][0], 2)
