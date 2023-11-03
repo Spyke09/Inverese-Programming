@@ -56,7 +56,7 @@ def test3():
     solver = UniqueSolutionSolver()
 
     solver.solve(
-        inst, [1, 0, 1, 0], [1, 0, 0], [0, 1], eps=1e-2, big_m=1e2
+        inst, [1, 0, 1, 0], [0, 1, 0], [0, 1, 2, 3], eps=1e-2, big_m=1e2
     )
     print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
@@ -73,7 +73,7 @@ def test4():
     print(solver.get_values_by_names(["x", "c", "b", "u", 'l']))
 
 
-test1()
+# test1()
 # test2()
-# test3()
+test3()
 # test4()

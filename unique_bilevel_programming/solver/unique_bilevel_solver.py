@@ -68,6 +68,7 @@ class UBSolver:
         """
         self._inst = inst
         self._weights = self._preprocess_weights(inst, weights)
+
         self._create_model()
 
         self.model.solve()
@@ -107,7 +108,7 @@ class UBSolver:
             y_lb = np.full(m, 0.0)
 
         # y_ub не создаем, так как он может быть однозначно выражен
-        # y3 = inst.A.T @ y + y_lb - c >= 0
+        # y_ub = inst.A.T @ y + y_lb - c >= 0
 
         l1 = self.model.addMVar(n, vtype=coptpy.COPT.BINARY, nameprefix="l1")
         if self._weights["l"] != SpWeights.Blank:
@@ -180,44 +181,44 @@ class UBSolver:
             self.model.addConstrs(y_lb <= kkt2 * self.big_m)
             self.model.addConstrs(x - l <= (1 - kkt2) * self.big_m)
 
-            self.model.addConstrs(y_lb >= self.eps * l2)
-
         if self._weights["u"] != SpWeights.Blank:
             kkt3 = self.model.addMVar(m, vtype=coptpy.COPT.BINARY, nameprefix="kkt3")
             self.model.addConstrs(self._inst.A.T @ y + y_lb - c <= kkt3 * self.big_m)
             self.model.addConstrs(u - x <= (1 - kkt3) * self.big_m)
 
-            self.model.addConstrs((self._inst.A.T @ y + y_lb - c) >= self.eps * l3)
-
     def _add_feasible_region_constraints(self, v):
         x, y, y_lb, l1, l2, l3, g, c, l, u, b = v
         if self._weights["c"] != SpWeights.Blank:
-            if self._weights["c"] == SpWeights.Infinity:
-                if not (self._inst.C @ c == self._inst.c_hat).all():
-                    raise ValueError("Given c is not feasible for Cc = c_hat")
-            else:
-                self.model.addConstrs(self._inst.C @ c == self._inst.c_hat)
+            if self._inst.C is not None and self._inst.c_hat is not None:
+                if self._weights["c"] == SpWeights.Infinity:
+                    if not (self._inst.C @ c == self._inst.c_hat).all():
+                        raise ValueError("Given c is not feasible for Cc = c_hat")
+                else:
+                    self.model.addConstrs(self._inst.C @ c == self._inst.c_hat)
 
         if self._weights["b"] != SpWeights.Blank:
-            if self._weights["b"] == SpWeights.Infinity:
-                if not (self._inst.B @ b == self._inst.b_hat).all():
-                    raise ValueError("Given b is not feasible for Bb = b_hat")
-            else:
-                self.model.addConstrs(self._inst.B @ b == self._inst.b_hat)
+            if self._inst.B is not None and self._inst.b_hat is not None:
+                if self._weights["b"] == SpWeights.Infinity:
+                    if not (self._inst.B @ b == self._inst.b_hat).all():
+                        raise ValueError("Given b is not feasible for Bb = b_hat")
+                else:
+                    self.model.addConstrs(self._inst.B @ b == self._inst.b_hat)
 
         if self._weights["l"] != SpWeights.Blank:
-            if self._weights["l"] == SpWeights.Infinity:
-                if not (self._inst.L @ l == self._inst.l_hat).all():
-                    raise ValueError("Given c is not feasible for Ll = l_hat")
-            else:
-                self.model.addConstrs(self._inst.L @ l == self._inst.l_hat)
+            if self._inst.L is not None and self._inst.l_hat is not None:
+                if self._weights["l"] == SpWeights.Infinity:
+                    if not (self._inst.L @ l == self._inst.l_hat).all():
+                        raise ValueError("Given c is not feasible for Ll = l_hat")
+                else:
+                    self.model.addConstrs(self._inst.L @ l == self._inst.l_hat)
 
         if self._weights["u"] != SpWeights.Blank:
-            if self._weights["u"] == SpWeights.Infinity:
-                if not (self._inst.U @ u == self._inst.u_hat).all():
-                    raise ValueError("Given c is not feasible for Uu = u_hat")
-            else:
-                self.model.addConstrs(self._inst.U @ u == self._inst.u_hat)
+            if self._inst.U is not None and self._inst.u_hat is not None:
+                if self._weights["u"] == SpWeights.Infinity:
+                    if not (self._inst.U @ u == self._inst.u_hat).all():
+                        raise ValueError("Given c is not feasible for Uu = u_hat")
+                else:
+                    self.model.addConstrs(self._inst.U @ u == self._inst.u_hat)
 
     def _add_counting_constraints(self, v):
         x, y, y_lb, l1, l2, l3, g, c, l, u, b = v
@@ -225,6 +226,15 @@ class UBSolver:
 
         self.model.addConstrs(y >= self.eps * l1 - self.big_m * g)
         self.model.addConstrs(y <= -self.eps * l1 + self.big_m * (1 - g))
+
+        if self._weights["l"] != SpWeights.Blank:
+            self.model.addConstrs(y_lb >= self.eps * l2)
+            self.model.addConstrs(y_lb <= self.big_m * l2)
+
+        if self._weights["u"] != SpWeights.Blank:
+            self.model.addConstrs((self._inst.A.T @ y + y_lb - c) >= self.eps * l3)
+            self.model.addConstrs((self._inst.A.T @ y + y_lb - c) <= self.big_m * l3)
+
         self.model.addConstrs(l1.sum() + l2.sum() + l3.sum() == m)
 
     def _set_objective(self, v):

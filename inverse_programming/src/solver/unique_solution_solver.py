@@ -137,7 +137,6 @@ class UniqueSolutionSolver:
         model.setObjective(sum_, coptpy.COPT.MINIMIZE)
 
         self._logger.info("Model is created.")
-        print(MIBLP.src.tools.model_repr(model))
         return model
 
     def _create_abs_constraint(self, x, name):

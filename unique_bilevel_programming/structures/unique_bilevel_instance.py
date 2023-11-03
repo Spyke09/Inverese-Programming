@@ -1,9 +1,10 @@
-from dataclasses import dataclass, field
-import numpy as np
 import typing as tp
+from dataclasses import dataclass
 
+import numpy as np
 
 ArrayType = np.array
+
 
 @dataclass
 class UBInstance:
@@ -60,29 +61,29 @@ class UBInstance:
             self.u0 = np.array(self.u0, dtype=float)
 
         if (self.C is None or self.c_hat is None) and self.c0 is not None:
-            self.C = np.full((1, self.c0.shape[0]), 0.0)
-            self.c_hat = np.full(1, 0.0)
+            self.C = None
+            self.c_hat = None
         else:
             self.C = np.array(self.C, dtype=float)
             self.c_hat = np.array(self.c_hat, dtype=float)
 
         if (self.B is None or self.b_hat is None) and self.b0 is not None:
-            self.B = np.full((1, self.b0.shape[0]), 0.0)
-            self.b_hat = np.full(1, 0.0)
+            self.B = None
+            self.b_hat = None
         else:
             self.B = np.array(self.B, dtype=float)
             self.b_hat = np.array(self.b_hat, dtype=float)
 
         if (self.L is None or self.l_hat is None) and self.l0 is not None:
-            self.L = np.full((1, self.l0.shape[0]), 0.0)
-            self.l_hat = np.full(1, 0.0)
+            self.L = None
+            self.l_hat = None
         else:
             self.L = np.array(self.L, dtype=float)
             self.L_hat = np.array(self.l_hat, dtype=float)
 
         if (self.U is None or self.u_hat is None) and self.u0 is not None:
-            self.U = np.full((1, self.u0.shape[0]), 0.0)
-            self.u_hat = np.full(1, 0.0)
+            self.U = None
+            self.u_hat = None
         else:
             self.U = np.array(self.U, dtype=float)
             self.u_hat = np.array(self.u_hat, dtype=float)
