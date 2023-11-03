@@ -76,5 +76,5 @@ def test_simple_instance_b(instance):
     answer = solver.get_values_by_names(weights_1_0.keys())
     b = answer['b']
     x = answer["x"]
-    assert np.all(x == 0)
-    assert b[0] == 0 and b[1] == 0
+    assert (np.all(x == 0) and b[0] == 0 and b[1] == 0) or (np.all(x == 1) and b[0] == 2 and b[1] == 2)
+

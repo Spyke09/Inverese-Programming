@@ -235,7 +235,7 @@ class UBSolver:
             self.model.addConstrs((self._inst.A.T @ y + y_lb - c) >= self.eps * l3)
             self.model.addConstrs((self._inst.A.T @ y + y_lb - c) <= self.big_m * l3)
 
-        self.model.addConstrs(l1.sum() + l2.sum() + l3.sum() == m)
+        # self.model.addConstrs(l1.sum() + l2.sum() + l3.sum() == m)
 
     def _set_objective(self, v):
         x, y, y_lb, l1, l2, l3, g, c, l, u, b = v
@@ -251,6 +251,8 @@ class UBSolver:
         if SpWeights.usual_q(self._weights["u"]) and self._weights["u"] != 0:
             weighed_obj_sum_ += self._create_abs_constraint(u - self._inst.u0, "ome_u").sum() * self._weights["u"]
 
+        # мега-костыль
+        weighed_obj_sum_ += -1000 * (l1.sum() + l2.sum() + l3.sum())
         self.model.setObjective(weighed_obj_sum_, coptpy.COPT.MINIMIZE)
 
     def _create_model(self):
