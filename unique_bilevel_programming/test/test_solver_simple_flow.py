@@ -46,7 +46,7 @@ def equal_q_f_p(a, b, eps=10e-7):
 def test_simple_instance_c(instance):
     weights_1_0 = {"c": 1}
     solver = UBSolver(eps=1e-2, big_m=1e2)
-    solver.solve(instance, weights_1_0, 7)
+    solver.solve(instance, weights_1_0)
     answer = solver.get_values_by_names(weights_1_0.keys())
     c = answer["c"]
 
@@ -78,3 +78,18 @@ def test_simple_instance_l(instance):
     answer = solver.get_values_by_names(weights_1_1.keys())
     l = answer["l"]
     assert l[0] == l[2] == 1 or l[3] == l[4] == 1 or l[0] == l[4] == 1 or l[2] == l[3] == 1
+
+
+@pytest.mark.parametrize(
+    "instance", [inst_1, inst_2, inst_3]
+)
+def test_simple_instance_b(instance):
+    weights_1_1 = {"x": 1000, "b": 1}
+    solver = UBSolver(eps=1e-2, big_m=1e2)
+    solver.solve(instance, weights_1_1)
+
+    answer = solver.get_values_by_names(weights_1_1.keys())
+    b = answer["b"]
+    x = answer["x"]
+    assert np.all(x == 1)
+    assert b[0] == 3 and b[1] == 0 and b[2] == 0
