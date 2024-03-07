@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import enum
 import typing as tp
 from dataclasses import dataclass
 
 import docplex.mp
-import docplex.mp.model
+import docplex.mp.dvar
 import docplex.mp.linear
+import docplex.mp.model
 import docplex.mp.vartype
-
 
 LPFloat = float
 Integral = (int, float, LPFloat)
@@ -20,13 +22,32 @@ class VarType(enum.Enum):
     BIN = 2
 
 
+class Sign(enum.Enum):
+    L_EQUAL = 0
+    G_EQUAL = 1
+    EQUAL = 2
+
+    @property
+    def to_str(self) -> str:
+        return {0: "<=", 1: ">=", 2: "=="}[self.value]
+
+
+class Sense(enum.Enum):
+    MAX = 0
+    MIN = 1
+
+    @property
+    def to_str(self) -> str:
+        return {0: "-> max", 1: "-> min"}[self.value]
+
+
 @dataclass
 class Var:
     _name: str
     _type: VarType = VarType.REAL
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
@@ -34,41 +55,45 @@ class Var:
         return self._name
 
     @property
-    def type(self):
+    def type(self) -> VarType:
         return self._type
 
     def __hash__(self) -> int:
         return self._name.__hash__()
 
-    def __eq__(self, other):
+    @property
+    def e(self) -> LinExpr:
+        return LinExpr(self)
+
+    def __eq__(self, other: tp.Any) -> bool:
         return isinstance(other, Var) and self._name == other._name
 
     def __repr__(self) -> str:
         return f"Var({self._name})"
 
-    def __add__(self, y):
-        return Expr.to_expr(self) + y
+    def __add__(self, y: LPEntity) -> LinExpr:
+        return self.e + y
 
-    def __sub__(self, y):
-        return Expr.to_expr(self) - y
+    def __sub__(self, y: LPEntity) -> LinExpr:
+        return LinExpr.to_expr(self) - y
 
-    def __mul__(self, y):
-        return Expr.to_expr(self) * y
+    def __mul__(self, y: LPEntity) -> LinExpr:
+        return LinExpr.to_expr(self) * y
 
-    def __truediv__(self, y):
-        return Expr.to_expr(self) * (1 / y)
+    def __truediv__(self, y: LPEntity) -> LinExpr:
+        return LinExpr.to_expr(self) * (1 / y)
 
-    def __radd__(self, y):
+    def __radd__(self, y: LPEntity) -> LinExpr:
         return self.__add__(y)
 
-    def __rsub__(self, y):
+    def __rsub__(self, y: LPEntity) -> LinExpr:
         return (self * (-1)) + y
 
-    def __rmul__(self, y):
+    def __rmul__(self, y: LPEntity) -> LinExpr:
         return self.__mul__(y)
 
 
-class Expr:
+class LinExpr:
     def __init__(self, *args):
         self._vars_coef: tp.Dict[Var, LPFloat] = dict()
         self.coef_0: LPFloat = LPFloat(0)
@@ -81,58 +106,58 @@ class Expr:
         elif len(args) == 1:
             self.__init_from_other_type(*args)
 
-    def get(self, key):
+    def get(self, key: Var) -> LPFloat:
         return self._vars_coef[key]
 
-    def set(self, key, value):
+    def set(self, key: Var, value: LPFloat) -> None:
         if value != 0:
             self._vars_coef[key] = value
         elif key in self._vars_coef:
             self._vars_coef.pop(key)
 
-    def __contains__(self, item):
+    def __contains__(self, item: tp.Any) -> bool:
         return item in self._vars_coef
 
-    def __init_from_lists(self, _vars: LPVector, _coefs: LPVector, _coef_0: LPFloat = LPFloat(0)):
+    def __init_from_lists(self, _vars: LPVector[Var], _coefs: LPVector[LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
         self._vars_coef = {i: j for i, j in zip(_vars, _coefs) if j != 0}
         self.coef_0 = LPFloat(_coef_0)
 
-    def __init_from_dict(self, _coefs: tp.Dict[Var, LPFloat], _coef_0: LPFloat = LPFloat(0)):
+    def __init_from_dict(self, _coefs: tp.Dict[Var, LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
         self._vars_coef = {i: j for i, j in _coefs.items() if j != 0}
         self.coef_0 = LPFloat(_coef_0)
 
-    def __init_from_other_type(self, x):
+    def __init_from_other_type(self, x: tp.Any) -> None:
         if isinstance(x, Integral):
             self.__init_from_dict({}, x)
         elif isinstance(x, Var):
             self.__init_from_dict({x: 1})
-        elif isinstance(x, Expr):
+        elif isinstance(x, LinExpr):
             return self.__init_from_dict(x._vars_coef, x.coef_0)
         else:
-            raise ValueError(f"Failed cast {x} to Expr")
+            raise ValueError(f"Failed cast {x} to LinExpr")
 
     @staticmethod
-    def to_expr(x):
+    def to_expr(x: tp.Any) -> LinExpr:
         """
-        Cast method i.e call constructor without creating copy of Expr
+        Cast method i.e. call constructor without creating copy of LinExpr
         """
         if isinstance(x, Integral) or isinstance(x, Var):
-            return Expr(x)
-        elif isinstance(x, Expr):
+            return LinExpr(x)
+        elif isinstance(x, LinExpr):
             return x
         else:
-            raise ValueError(f"Failed cast {x} to Expr")
+            raise ValueError(f"Failed cast {x} to LinExpr")
 
     @property
-    def vars(self):
-        return self._vars_coef.keys()
+    def vars(self) -> tp.Set[Var]:
+        return set(self._vars_coef.keys())
 
     @property
-    def vars_coef(self):
+    def vars_coef(self) -> tp.Dict[Var, LPFloat]:
         return dict(self._vars_coef)
 
-    def __add__(self, y):
-        y = Expr.to_expr(y)
+    def __add__(self, y: LPEntity) -> LinExpr:
+        y = LinExpr.to_expr(y)
         vars_coefs = dict(self._vars_coef)
         for v, coef in y._vars_coef.items():
             if v in self._vars_coef:
@@ -140,20 +165,20 @@ class Expr:
             else:
                 vars_coefs[v] = coef
 
-        return Expr(vars_coefs, self.coef_0 + y.coef_0)
+        return LinExpr(vars_coefs, self.coef_0 + y.coef_0)
 
-    def __sub__(self, y):
+    def __sub__(self, y: LPEntity) -> LinExpr:
         return self + (y * (-1))
 
-    def __mul__(self, y):
+    def __mul__(self, y: LPEntity) -> LinExpr:
         y = LPFloat(y)
-        return Expr({i: j * y for i, j in self._vars_coef.items()}, self.coef_0 * y)
+        return LinExpr({i: j * y for i, j in self._vars_coef.items()}, self.coef_0 * y)
 
-    def __truediv__(self, y):
+    def __truediv__(self, y: LPEntity) -> LinExpr:
         return self * (1 / y)
 
-    def __iadd__(self, y):
-        y = Expr.to_expr(y)
+    def __iadd__(self, y: LPEntity) -> LinExpr:
+        y = LinExpr.to_expr(y)
         for v, coef in y._vars_coef.items():
             if v in self._vars_coef:
                 self._vars_coef[v] += coef
@@ -161,27 +186,26 @@ class Expr:
                 self._vars_coef[v] = coef
         return self
 
-    def __isub__(self, y):
+    def __isub__(self, y: LPEntity) -> LinExpr:
         return self.__iadd__(y * (-1))
 
-    def __imul__(self, y):
+    def __imul__(self, y: LPEntity) -> LinExpr:
         y = LPFloat(y)
         self._vars_coef = {i: j * y for i, j in self._vars_coef.items()}
         self.coef_0 *= y
         return self
 
-    def __itruediv__(self, y):
+    def __itruediv__(self, y: LPEntity) -> LinExpr:
         return self.__imul__(1 / y)
 
-    def __radd__(self, y):
+    def __radd__(self, y: LPEntity) -> LinExpr:
         return self.__add__(y)
 
-    def __rsub__(self, y):
+    def __rsub__(self, y: LPEntity) -> LinExpr:
         return (self * (-1)) + y
 
-    def __rmul__(self, y):
+    def __rmul__(self, y: LPEntity) -> LinExpr:
         return self.__mul__(y)
-
 
     @property
     def to_str(self) -> str:
@@ -206,46 +230,27 @@ class Expr:
             s += f"{self.coef_0}"
         return s
 
-    def __repr__(self):
-        return f"Expr({self.to_str})"
+    def __repr__(self) -> str:
+        return f"LinExpr({self.to_str})"
 
-    def __le__(self, other):
+    def __le__(self, other: LPEntity) -> Constraint:
         return Constraint(self, Sign.L_EQUAL, other)
 
-    def __ge__(self, other):
+    def __ge__(self, other: LPEntity) -> Constraint:
         return Constraint(self, Sign.G_EQUAL, other)
 
-    def __eq__(self, other):
+    def __eq__(self, other: LPEntity) -> Constraint:
         return Constraint(self, Sign.EQUAL, other)
 
 
-LPEntity = tp.Union[LPFloat, Var, Expr]
-
-
-class Sign(enum.Enum):
-    L_EQUAL = 0
-    G_EQUAL = 1
-    EQUAL = 2
-
-    @property
-    def to_str(self) -> str:
-        return {0: "<=", 1: ">=", 2: "=="}[self.value]
-
-
-class Sense(enum.Enum):
-    MAX = 0
-    MIN = 1
-
-    @property
-    def to_str(self) -> str:
-        return {0: "-> max", 1: "-> min"}[self.value]
+LPEntity = tp.Union[LPFloat, Var, LinExpr]
 
 
 class Constraint:
     constraints_counter = 0
 
     def __init__(self, left: LPEntity, sign: Sign, right: LPEntity):
-        self._expr: Expr = Expr.to_expr(left) - right
+        self._expr: LinExpr = LinExpr.to_expr(left) - right
         self._b_coef: LPFloat = -self._expr.coef_0
         self._expr.coef_0 = 0
         self._sign: Sign = sign
@@ -254,39 +259,39 @@ class Constraint:
         Constraint.constraints_counter += 1
 
     @property
-    def to_str(self):
+    def to_str(self) -> str:
         return f"{self._expr.to_str} {self._sign.to_str} {self._b_coef}"
 
     def __repr__(self):
         return f"Constraint_{self.name}({self.to_str})"
 
     @property
-    def sign(self):
+    def sign(self) -> Sign:
         return self._sign
 
     @property
-    def expr(self) -> Expr:
+    def expr(self) -> LinExpr:
         return self._expr
 
     @property
-    def b_coef(self):
+    def b_coef(self) -> LPFloat:
         return self._b_coef
 
     @property
-    def vars(self):
+    def vars(self) -> tp.Set[Var]:
         return self.expr.vars
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return self._name.__hash__()
 
-    def __eq__(self, other):
+    def __eq__(self, other: tp.Any) -> bool:
         return id(self) == id(other)
 
-    def rotate_sign(self):
+    def rotate_sign(self) -> None:
         if self.sign != Sign.EQUAL:
             self._expr *= -1
             self._b_coef *= -1
@@ -295,10 +300,14 @@ class Constraint:
 
 class Model:
     def __init__(self):
-        self.obj: Expr = Expr(0)
+        self.obj: LinExpr = LinExpr(0)
         self.sense: Sense = Sense.MIN
         self.constraints: tp.List[Constraint] = list()
-        self.vars: tp.Set[Var] = set()
+        self._vars: tp.Set[Var] = set()
+
+    @property
+    def vars(self) -> tp.Set[Var]:
+        return set(self._vars)
 
     def add_constr(self, constr: Constraint) -> Constraint:
         self.constraints.append(constr)
@@ -311,10 +320,12 @@ class Model:
             names.add(self.add_constr(i))
         return names
 
-    def add_obj(self, expr: Expr, sense: Sense) -> None:
+    def add_obj(self, expr: LinExpr, sense: Sense) -> None:
+        if self.obj is not None:
+            self._vars = self.vars.difference(self.obj.vars.difference(expr.vars))
         self.obj = expr
         self.sense = sense
-        self.vars.update(expr.vars)
+        self._vars.update(expr.vars)
 
     @property
     def to_str(self) -> str:
@@ -345,7 +356,7 @@ class UBModel:
 
         self._lam = None
 
-    def init_c_as_var(self, *args):
+    def init_c_as_var(self, *args) -> None:
         if len(args) == 0:
             self._c = {i: Var(f"c_{i.name}") for i in self._c}
             self._vars.update(self._c.values())
@@ -354,7 +365,7 @@ class UBModel:
                 self._c[i] = Var(f"c_{i.name}")
                 self._vars.add(self._c[i])
 
-    def init_b_as_var(self, *args):
+    def init_b_as_var(self, *args) -> None:
         if len(args) == 0:
             self._b = {i: Var(f"b_{i.name}") for i in self._b}
             self._vars.update(self._b.values())
@@ -363,7 +374,7 @@ class UBModel:
                 self._b[i] = Var(f"b_{i.name}")
                 self._vars.add(self._b[i])
 
-    def set_x0(self, x_0: tp.Dict[Var, LPFloat]):
+    def set_x0(self, x_0: tp.Dict[Var, LPFloat]) -> None:
         self._x_0 = dict()
         for x_i, val_x_i in x_0:
             if x_i in self._model.vars:
@@ -374,23 +385,23 @@ class UBModel:
         if len(self._x_0) != len(self._model.vars):
             raise ValueError
 
-    def get_c(self):
+    def get_c(self) -> tp.Dict[Var, tp.Union[Var, LPFloat]]:
         return dict(self._c)
 
-    def get_b(self):
+    def get_b(self) -> tp.Dict[Constraint, tp.Union[Var, LPFloat]]:
         return dict(self._b)
 
-    def add_constr(self, constr: Constraint):
+    def add_constr(self, constr: Constraint) -> None:
         if all(i in self._vars for i in constr.vars):
             self._constraints.append(constr)
         else:
             raise ValueError
 
-    def add_constrs(self, constrs: tp.Iterable[Constraint]):
+    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
         for i in constrs:
             self.add_constr(i)
 
-    def init(self):
+    def init(self) -> None:
         eps = 1e-2
         big_m = 1e2
 
@@ -401,7 +412,7 @@ class UBModel:
         y = {i: Var(f"pi_{i.name}") for i in self._model.constraints}
         self._vars.update(y.values())
         for x_i in self._model.vars:
-            expr = Expr(0)
+            expr = LinExpr(0)
             for con in y.keys():
                 if x_i in con.expr:
                     expr += con.expr.get(x_i) * y[con]
@@ -414,7 +425,7 @@ class UBModel:
         self._vars.update(gam.values())
         max_q, min_q = self._model.sense == Sense.MAX, self._model.sense == Sense.MIN
         for con, var in y.items():
-            evar = Expr(var)
+            evar = LinExpr(var)
             if con.sign == Sign.G_EQUAL and max_q or con.sign == Sign.L_EQUAL and min_q:
                 self.add_constr(evar <= 0)
                 self.add_constr(evar <= -eps * lam[var])
@@ -433,9 +444,9 @@ class UBModel:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
         self._lam = list(lam.values())
 
-    def solve(self):
+    def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
         m = docplex.mp.model.Model(
-            name=f'UniqueBilevelProgramming'
+            name=f'UniqueBilevelProgram'
         )
         x = dict()
         my_type_tp_cplex_type = {
@@ -462,20 +473,15 @@ class UBModel:
             ]
         )
 
-        m.solve()
-        # print(m.solve_status)
-        if m.solution is None:
-            return None
+        return m, x
 
-        solution = {i: xi.solution_value for i, xi in x.items()}
-        # print(solution)
-        # print(m.blended_objective_values)
+    def make_new_model_from_solution(self, solution: tp.Dict[Var, LPFloat]) -> Model:
         rev_c = {j: i for i, j in self._c.items()}
         self._c.update({rev_c[i]: j for i, j in solution.items() if i in rev_c.keys()})
         rev_b = {j: i for i, j in self._b.items()}
         self._b.update({rev_b[i]: j for i, j in solution.items() if i in rev_b})
         new_model = Model()
-        new_model.add_obj(Expr(sum(i * j for i, j in self._c.items())), sense=self._model.sense)
+        new_model.add_obj(LinExpr(sum(i * j for i, j in self._c.items())), sense=self._model.sense)
         for con in self._model.constraints:
             if con.sign == Sign.L_EQUAL:
                 new_model.add_constr(con.expr <= self._b[con])
@@ -486,15 +492,23 @@ class UBModel:
 
         return new_model
 
+    def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+        m, x = self._init_cplex_model()
+        m.solve()
+        if m.solution is None:
+            return None
+
+        return {i: round(xi.solution_value, 7) for i, xi in x.items()}
+
     @property
-    def to_str(self):
+    def to_str(self) -> str:
         s = ""
         for i in self._constraints:
             s += f"{i.to_str}\n"
 
         return s.strip("\n")
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         s = self.to_str.replace('\n', '\n\t')
         return f"Model(\n\t{s}\n)"
 
