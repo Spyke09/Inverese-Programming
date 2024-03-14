@@ -44,4 +44,6 @@ def get_data():
         terminal_db
     )
 
+
+
 get_data()
