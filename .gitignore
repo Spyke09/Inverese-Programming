@@ -160,4 +160,4 @@ cython_debug/
 .idea/
 
 *.json
-raw_data
+*raw_data
