@@ -192,7 +192,7 @@ class LinExpr:
                     elif coef > 0:
                         s += ' + ' if coef == 1 else f" + {coef} * "
                 else:
-                    s += "" if coef == 1 else (" - " if coef == -1 else f"{coef} * ")
+                    s += "" if coef == 1 else ("-" if coef == -1 else f"{coef} * ")
                 s += v.to_str
 
         if len(s) != 0:

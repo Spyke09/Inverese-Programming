@@ -118,6 +118,7 @@ class UBModel:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
         self._lam = list(lam.values())
 
+
     def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
         m = docplex.mp.model.Model(
             name=f'UniqueBilevelProgram'
@@ -134,13 +135,10 @@ class UBModel:
         for con in self._constraints:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
-        m.minimize_static_lex(
-            [
-                -m.sum(x[i] for i in self._lam),
+        m.minimize(
                 m.sum(m.abs(x[self._c[i]] - self._c_0[i]) for i in self._c if self._c[i] in x) * self._obj_p["c"] +
                 m.sum(m.abs(x[self._b[i]] - self._b_0[i]) for i in self._b if self._b[i] in x) * self._obj_p["b"] +
-                m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars) * self._obj_p["x"]
-            ]
+                (m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars) * self._obj_p["x"] if self._x_0 is not None else 0)
         )
 
         return m, x
@@ -165,12 +163,49 @@ class UBModel:
 
     def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         m, x = self._init_cplex_model()
-        m.solve()
-        if m.solution is None:
-            return None
+        lam_l = len(self._model.vars) - 1
+        lam_u = len(self._model.constraints) + 1
+        eps = (self._eps ** 2) / 10
+        final_sol = None
+        while lam_l + 1 < lam_u:
+            lam_m = (lam_u + lam_l) // 2
+            con = m.add_constraint(m.sum(x[i] for i in self._lam) == lam_m)
+            m.solve()
 
-        print(m.blended_objective_values)
-        return {i: round(xi.solution_value, 7) for i, xi in x.items()}
+            if m.solution is None:
+                lam_u = lam_m
+            else:
+                sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
+                if self._check_unique(sol) <= eps:
+                    lam_u = lam_m
+                    final_sol = sol
+                else:
+                    lam_l = lam_m
+            m.remove_constraint(con)
+        return final_sol
+
+    def _check_unique(self, solution):
+        m = docplex.mp.model.Model(
+            name=f'CheckUnique'
+        )
+        x = dict()
+        for i in self._model.vars:
+            x[i] = m.continuous_var(name=i.name, lb=-m.infinity)
+
+        for con in self._model.constraints:
+            b_coef = solution[self._b[con]] if isinstance(self._b[con], Var) else con.b_coef
+            m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), b_coef))
+
+        old_obj_v = 0
+        for i in self._model.vars:
+            old_obj_v += solution[i] * (solution[self._c[i]] if isinstance(self._c[i], Var) else self._c[i])
+
+        c = {i: (solution[self._c[i]] if isinstance(self._c[i], Var) else self._model.obj.vars_coef[i]) for i in self._model.vars}
+        m.add_constraint(m.sum(x[i] * c[i] for i in self._model.obj.vars) == old_obj_v)
+
+        m.maximize(m.sum(m.abs(x[i] - solution[i]) for i in self._model.vars))
+        m.solve()
+        return m.blended_objective_values[0]
 
     @property
     def to_str(self) -> str:
