@@ -20,10 +20,10 @@ class Model:
         self._vars.update(constr.vars)
         return constr
 
-    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> tp.Set[Constraint]:
-        names = set()
+    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> tp.List[Constraint]:
+        names = list()
         for i in constrs:
-            names.add(self.add_constr(i))
+            names.append(self.add_constr(i))
         return names
 
     def add_obj(self, expr: LinExpr, sense: Sense) -> None:

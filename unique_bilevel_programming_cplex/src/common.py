@@ -28,7 +28,7 @@ class Sign(Enum):
         if self == Sign.G_EQUAL:
             return a >= b
         if self == Sign.L_EQUAL:
-            return a >= b
+            return a <= b
 
 
 class Sense(Enum):
