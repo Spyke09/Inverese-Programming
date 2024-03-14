@@ -7,7 +7,6 @@ from unique_bilevel_programming_cplex.src.var_expr_con import Var
 from unique_bilevel_programming_cplex.src.common import Sense
 
 
-
 edge = [Var(f"e{i}") for i in range(1, 6)]
 
 inst_1 = Model()

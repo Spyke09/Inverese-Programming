@@ -1,6 +1,3 @@
-import numpy as np
-import pytest
-
 from unique_bilevel_programming_cplex.src.common import Sense
 from unique_bilevel_programming_cplex.src.model import Model
 from unique_bilevel_programming_cplex.src.ubmodel import UBModel

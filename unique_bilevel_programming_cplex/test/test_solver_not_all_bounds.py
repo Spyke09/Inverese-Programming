@@ -24,6 +24,7 @@ b_2 = inst_2.add_constr(x1 + x2 == 1)
 u1 = inst_2.add_constr(x1.e <= 1)
 u2 = inst_2.add_constr(x2.e <= 1)
 
+
 def equal_q_f_p(a, b, eps=10e-7):
     return (np.abs(a - b) < eps).all()
 

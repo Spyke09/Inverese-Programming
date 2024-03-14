@@ -65,6 +65,7 @@ def test_simple_instance_b_min():
 
     model.init()
     answer = model.solve()
+
     assert answer[Var(f"b_{b.name}")] == 0 or answer[Var(f"b_{b.name}")] == 2
 
 
