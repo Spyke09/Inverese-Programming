@@ -20,11 +20,11 @@ class UBModel:
         self._constraints: tp.List[Constraint] = list()
         self._vars: tp.Set[Var] = set(model.vars)
 
-        self._x_0: tp.Optional[tp.Dict[Var, LPFloat]] = None
+        self._x_0: tp.Optional[tp.Dict[Var, LPFloat]] = dict()
         self._c: tp.Dict[Var, tp.Union[Var, LPFloat]] = model.obj.vars_coef
-        self._c_0: tp.Dict[Var, LPFloat] = dict(model.obj.vars_coef)
+        self._c_0: tp.Dict[Var, LPFloat] = dict()
         self._b: tp.Dict[Constraint, tp.Union[Var, LPFloat]] = {i: i.b_coef for i in model.constraints}
-        self._b_0: tp.Dict[Constraint, LPFloat] = dict(self._b)
+        self._b_0: tp.Dict[Constraint, LPFloat] = dict()
 
         self._lam = None
 
@@ -48,16 +48,18 @@ class UBModel:
                 self._b[i] = Var(f"b_{i.name}")
                 self._vars.add(self._b[i])
 
-    def set_x0(self, x_0: tp.Dict[Var, LPFloat]) -> None:
-        self._x_0 = dict()
-        for x_i, val_x_i in x_0.items():
-            if x_i in self._model.vars:
-                self._x_0[x_i] = val_x_i
-            else:
-                raise ValueError
+    def set_b0(self, constrs: tp.List[Constraint]) -> None:
+        self._b_0 = dict()
+        for con in constrs:
+            self._b_0[con] = con.b_coef
 
-        if len(self._x_0) != len(self._model.vars):
-            raise ValueError
+    def set_c0(self, x_coef: tp.Dict[Var, LPFloat]) -> None:
+        self._c_0 = dict()
+        for x, coef in x_coef:
+            self._c_0[x] = coef
+
+    def set_x0(self, x_0: tp.Dict[Var, LPFloat]) -> None:
+        self._x_0 = dict(x_0)
 
     def get_c(self) -> tp.Dict[Var, tp.Union[Var, LPFloat]]:
         return dict(self._c)
@@ -118,7 +120,6 @@ class UBModel:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
         self._lam = list(lam.values())
 
-
     def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
         m = docplex.mp.model.Model(
             name=f'UniqueBilevelProgram'
@@ -136,9 +137,9 @@ class UBModel:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
         m.minimize(
-                m.sum(m.abs(x[self._c[i]] - self._c_0[i]) for i in self._c if self._c[i] in x) * self._obj_p["c"] +
-                m.sum(m.abs(x[self._b[i]] - self._b_0[i]) for i in self._b if self._b[i] in x) * self._obj_p["b"] +
-                (m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars) * self._obj_p["x"] if self._x_0 is not None else 0)
+            m.sum(m.abs(x[self._c[i]] - self._c_0[i]) for i in self._c if self._c[i] in x and i in self._c_0) * self._obj_p["c"] +
+            m.sum(m.abs(x[self._b[i]] - self._b_0[i]) for i in self._b if self._b[i] in x and i in self._b_0) * self._obj_p["b"] +
+            m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars if i in x and i in self._x_0) * self._obj_p["x"]
         )
 
         return m, x

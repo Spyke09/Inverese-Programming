@@ -1,0 +1,37 @@
+cc_list_full -> список всех стран
+consumption_production_assoc -> consumption -> для каждой страны -> для каждой даты -> сколько потреблено
+			     -> production -> для каждой страны -> для каждой даты -> сколько произведено
+export_assoc -> для каждой страны i-> для каждой страны j -> для каждой даты -> сколько отправлено из i в j газа в кубометрах
+graph_db -> arcCapTimeAssoc -> для каждой даты -> дуги (транспортер 1, транспортер 2, вместимость 1-2)
+	 -> vertexCountryAssoc -> для каждого транспортера -> страна транспортера
+	 -> arcList -> дуги (транспортер 1, транспортер 2)
+	 -> tsoList -> транспортеры
+	 -> lngList -> транспортеры сжиженного газа
+	 -> storList -> подземные хранилища
+	 -> exportDirections -> страна 1 -> список страны в которые доступен экспорт
+	 -> consumVertexList -> ...
+	 -> consumList -> ...
+	 -> prodVertexList -> ...
+	 -> prodList -> ...
+	 -> exporterVertexList -> ...
+	 -> exporterList -> ...
+prices_assoc -> TTFG1MON Index -> для каждой даты -> деньга
+	     -> CO1 Comdty -> для каждой даты -> деньга
+storage_db -> хранилище -> страна
+			-> По дню -> для каждого дня -> gasInStorage
+						     -> workingGasVolume
+						     -> injection
+						     -> injectionCapacity
+						     -> withdrawal
+						     -> withdrawalCapacity
+			-> По месяцу -> для каждого месяца -> gasInStorage
+						           -> workingGasVolume
+						           -> injection
+						           -> injectionCapacity
+						           -> withdrawal
+						           -> withdrawalCapacity
+terminal_db -> транспортер -> страна
+			   -> По дню -> sendOut
+				     -> dtrs
+			   -> По месяцу -> sendOut
+				        -> dtrs
