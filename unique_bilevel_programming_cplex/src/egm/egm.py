@@ -148,8 +148,6 @@ class EGRMinCostFlowModel:
         m = self._model = Model()
 
         sos_lng = {f"{i} sos": i for i in graph["lngList"]}
-        sos_prod = {f"{i} sos": i for i in graph["prodVertexList"]}
-        sos_cons = {f"{i} sos": i for i in graph["consumVertexList"]}
         sos_stor_in = {f"{i} sos in": i for i in graph["storList"]}
         sos_stor_out = {f"{i} sos out": i for i in graph["storList"]}
         vertex_in = set.union(graph["prodVertexList"], graph["exporterVertexList"], graph["lngList"])
@@ -233,9 +231,9 @@ class EGRMinCostFlowModel:
                         cap = self._data.terminal_db[v1]["MonthData"][d]["dtrs"]
                     if v1 in graph["tsoList"] and v2 in graph["tsoList"]:
                         cap = graph["arcCapTimeAssoc"][d][edge]
-                    if v2 in graph["storList"]:
+                    if v1 in sos_stor_in and v2 in graph["storList"]:
                         cap = self._data.storage_db[v2]["MonthData"][d]["injectionCapacity"]
-                    if v1 in graph["storList"]:
+                    if v1 in graph["storList"] and v2 in sos_stor_out:
                         cap = self._data.storage_db[v1]["MonthData"][d]["withdrawalCapacity"]
                     temp = m.add_constr(
                         f_arc[d][edge].e <= cap
@@ -300,13 +298,23 @@ class EGRMinCostFlowModel:
         c = ub_m.init_c_as_var()
         b = ub_m.init_b_as_var(self._unknown_ub)
 
+        x_0 = self._get_x_0()
+        print(x_0)
+
     def _get_x_0(self):
         graph = self._data.graph_db
 
         x_0 = dict()
 
         sos_lng = {f"{i} sos": i for i in graph["lngList"]}
+        sos_stor_in = {f"{i} sos in": i for i in graph["storList"]}
+        sos_stor_out = {f"{i} sos out": i for i in graph["storList"]}
+
         cc_tso = {i: set() for i in graph["vertexCountryAssoc"].values()}
+
+        delta = self._dates[1] - self._dates[0]
+        exp_dates = [self._dates[0] - delta] + self._dates + [self._dates[-1] + delta]
+
         for i, j in graph["vertexCountryAssoc"].items():
             cc_tso[j].add(i)
 
@@ -316,15 +324,28 @@ class EGRMinCostFlowModel:
                 for v2 in fanout:
                     edge = v1, v2
                     if v1 in graph["lngList"] and v2 in sos_lng:
-                        x_0[self._f_arc[d][edge]] = self._data.terminal_db[v1]["MonthData"][d]["sendOut"]
-                    if v2 in graph["storList"]:
-                        x_0[self._f_arc[d][edge]] = self._data.storage_db[v2]["MonthData"][d]["injection"]
-                    if v1 in graph["storList"]:
-                        x_0[self._f_arc[d][edge]] = self._data.storage_db[v1]["MonthData"][d]["withdrawal"]
+                        x_0[self._f_arc[d][v1, v2]] = self._data.terminal_db[v1]["MonthData"][d]["sendOut"]
+                    if v1 in sos_stor_in and v2 in graph["storList"]:
+                        x_0[self._f_arc[d][v1, v2]] = self._data.storage_db[v2]["MonthData"][d]["injection"]
+                    if v1 in graph["storList"] and v2 in sos_stor_out:
+                        x_0[self._f_arc[d][v1, v2]] = self._data.storage_db[v1]["MonthData"][d]["withdrawal"]
 
             for c1, c_out in graph['exportDirections'].items():
                 for c2 in c_out:
                     x_0[self._f_arc[d][c1, c2]] = self._data.export_assoc[c1][c2][d]
+
+            for v1 in graph["prodVertexList"]:
+                x_0[self._f_arc[d][v1, f"{v1} sos"]] = self._data.consumption_production_assoc["production"][v1][d]
+
+            for v2 in graph["consumVertexList"]:
+                x_0[self._f_arc[d][f"{v2} sos", v2]] = self._data.consumption_production_assoc["consumption"][v2][d]
+
+        for d in exp_dates[:-1]:
+            for v in graph["storList"]:
+                x_0[self._f_ugs[v][d]] = self._data.storage_db[v]["MonthData"][d]["gasInStorage"]
+
+        return x_0
+
 
 if __name__ == "__main__":
     EGRMinCostFlowModel(
