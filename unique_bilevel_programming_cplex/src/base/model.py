@@ -1,7 +1,7 @@
 import typing as tp
 
-from unique_bilevel_programming_cplex.src.common import Sense
-from unique_bilevel_programming_cplex.src.var_expr_con import Var, LinExpr, Constraint
+from unique_bilevel_programming_cplex.src.base.common import Sense
+from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
 
 
 class Model:

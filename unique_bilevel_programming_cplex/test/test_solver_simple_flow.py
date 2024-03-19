@@ -1,10 +1,10 @@
 import pytest
 import numpy as np
 
-from unique_bilevel_programming_cplex.src.model import Model
-from unique_bilevel_programming_cplex.src.ubmodel import UBModel
-from unique_bilevel_programming_cplex.src.var_expr_con import Var
-from unique_bilevel_programming_cplex.src.common import Sense
+from unique_bilevel_programming_cplex.src.base.model import Model
+from unique_bilevel_programming_cplex.src.base.ubmodel import UBModel
+from unique_bilevel_programming_cplex.src.base.var_expr_con import Var
+from unique_bilevel_programming_cplex.src.base.common import Sense
 
 
 edge = [Var(f"e{i}") for i in range(1, 6)]

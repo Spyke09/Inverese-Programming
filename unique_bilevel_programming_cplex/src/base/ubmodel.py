@@ -6,9 +6,9 @@ import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
 
-from unique_bilevel_programming_cplex.src.common import LPFloat, Sign, Sense
-from unique_bilevel_programming_cplex.src.var_expr_con import LinExpr, Constraint, Var, VarType
-from unique_bilevel_programming_cplex.src.model import Model
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
+from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
+from unique_bilevel_programming_cplex.src.base.model import Model
 
 
 class UBModel:

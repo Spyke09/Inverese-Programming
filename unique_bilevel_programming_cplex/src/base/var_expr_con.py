@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing as tp
 
-from unique_bilevel_programming_cplex.src.common import LPEntity, VarType, LPVector, LPFloat, Integral, Sign
+from unique_bilevel_programming_cplex.src.base.common import LPEntity, VarType, LPVector, LPFloat, Integral, Sign
 
 
 class Var:
