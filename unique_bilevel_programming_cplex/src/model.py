@@ -15,12 +15,17 @@ class Model:
     def vars(self) -> tp.Set[Var]:
         return set(self._vars)
 
-    def add_constr(self, constr: Constraint) -> Constraint:
-        self.constraints.append(constr)
-        self._vars.update(constr.vars)
+    def add_constr(self, constr: tp.Union[Constraint, bool]) -> Constraint:
+        if isinstance(constr, bool) and not constr:
+            raise ValueError("Always false constraint")
+        elif isinstance(constr, Constraint):
+            self.constraints.append(constr)
+            self._vars.update(constr.vars)
+        else:
+            raise TypeError
         return constr
 
-    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> tp.List[Constraint]:
+    def add_constrs(self, constrs: tp.Iterable[tp.Union[Constraint, bool]]) -> tp.List[Constraint]:
         names = list()
         for i in constrs:
             names.append(self.add_constr(i))

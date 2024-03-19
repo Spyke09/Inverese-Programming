@@ -30,23 +30,31 @@ class UBModel:
 
         self._obj_p = {"c": 1, "b": 1, "x": 1}
 
-    def init_c_as_var(self, *args) -> None:
+    def init_c_as_var(self, *args) -> tp.Dict[Var, Var]:
         if len(args) == 0:
             self._c = {i: Var(f"c_{i.name}") for i in self._c}
             self._vars.update(self._c.values())
+            return dict(self._c)
         elif len(args) == 1 and isinstance(args, (list, set)):
+            res = dict()
             for i in args[0]:
                 self._c[i] = Var(f"c_{i.name}")
+                res[i] = self._c[i]
                 self._vars.add(self._c[i])
+            return res
 
-    def init_b_as_var(self, *args) -> None:
+    def init_b_as_var(self, *args) -> tp.Dict[Constraint, Var]:
         if len(args) == 0:
             self._b = {i: Var(f"b_{i.name}") for i in self._b}
             self._vars.update(self._b.values())
+            return self._b
         elif len(args) == 1 and isinstance(args[0], (list, set)):
+            res = dict()
             for i in args[0]:
                 self._b[i] = Var(f"b_{i.name}")
+                res[i] = self._b[i]
                 self._vars.add(self._b[i])
+            return res
 
     def set_b0(self, constrs: tp.List[Constraint]) -> None:
         self._b_0 = dict()
