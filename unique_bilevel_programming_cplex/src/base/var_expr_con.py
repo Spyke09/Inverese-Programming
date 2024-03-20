@@ -19,7 +19,6 @@ class Var:
         else:
             raise ValueError
 
-
     @property
     def name(self) -> str:
         return self._name
@@ -74,11 +73,11 @@ class LinExpr:
 
         if 2 <= len(args) <= 3:
             if isinstance(args[0], LPVector) and isinstance(args[1], LPVector):
-                self.__init_from_lists(*args)
+                self._init_from_lists(*args)
             if isinstance(args[0], dict):
-                self.__init_from_dict(*args)
+                self._init_from_dict(*args)
         elif len(args) == 1:
-            self.__init_from_other_type(*args)
+            self._init_from_other_type(*args)
 
     def get(self, key: Var) -> LPFloat:
         return self._vars_coef[key]
@@ -92,21 +91,21 @@ class LinExpr:
     def __contains__(self, item: tp.Any) -> bool:
         return item in self._vars_coef
 
-    def __init_from_lists(self, _vars: LPVector[Var], _coefs: LPVector[LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
+    def _init_from_lists(self, _vars: LPVector[Var], _coefs: LPVector[LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
         self._vars_coef = {i: j for i, j in zip(_vars, _coefs) if j != 0}
         self.coef_0 = LPFloat(_coef_0)
 
-    def __init_from_dict(self, _coefs: tp.Dict[Var, LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
+    def _init_from_dict(self, _coefs: tp.Dict[Var, LPFloat], _coef_0: LPFloat = LPFloat(0)) -> None:
         self._vars_coef = {i: j for i, j in _coefs.items() if j != 0}
         self.coef_0 = LPFloat(_coef_0)
 
-    def __init_from_other_type(self, x: tp.Any) -> None:
+    def _init_from_other_type(self, x: tp.Any) -> None:
         if isinstance(x, Integral):
-            self.__init_from_dict({}, x)
+            self._init_from_dict({}, x)
         elif isinstance(x, Var):
-            self.__init_from_dict({x: 1})
+            self._init_from_dict({x: LPFloat(1)})
         elif isinstance(x, LinExpr):
-            return self.__init_from_dict(x._vars_coef, x.coef_0)
+            return self._init_from_dict(x._vars_coef, x.coef_0)
         else:
             raise ValueError(f"Failed cast {x} to LinExpr")
 

@@ -1,10 +1,14 @@
 import typing as tp
 from enum import Enum
 
-LPFloat = float
+import numpy as np
+
+LPFloat = np.float64
+LPNan = np.nan
 Integral = (int, float, LPFloat)
 LPVector = list
 LPVectorT = tp.List
+
 
 
 class VarType(Enum):
@@ -48,4 +52,4 @@ class LinExpr:
     pass
 
 
-LPEntity = tp.Union[LPFloat, Var, LinExpr]
+LPEntity = tp.Union[LPFloat, Var, LinExpr, int, float]

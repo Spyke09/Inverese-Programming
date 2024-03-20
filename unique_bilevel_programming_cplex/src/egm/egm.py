@@ -1,144 +1,33 @@
-import json
+import itertools
 import typing as tp
-from dataclasses import dataclass
 from datetime import datetime
 
-import numpy
-import numpy as np
-
+from unique_bilevel_programming_cplex.src.base.common import LPNan, Sense
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.ubmodel import UBModel
-from unique_bilevel_programming_cplex.src.base.var_expr_con import Var
-
-LPNan = numpy.nan
-
-@dataclass
-class EGMData:
-    cc_list_full: tp.Any
-    consumption_production_assoc: tp.Any
-    export_assoc: tp.Any
-    graph_db: tp.Any
-    prices_assoc: tp.Any
-    storage_db: tp.Any
-    terminal_db: tp.Any
-
-
-class DataParser:
-    @staticmethod
-    def _process_num(num):
-        return LPNan if num == "Missing" else np.float64(num)
-
-    @staticmethod
-    def _process_date(date):
-        return date if isinstance(date, datetime) else datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
-
-    @staticmethod
-    def get_data():
-        with open("../../data/ccListFull.json", "r") as f:
-            cc_list_full = set(json.load(f))
-        with open("../../data/consumptionProductionAssoc.json", "r") as f:
-            consumption_production_assoc = json.load(f)
-            consumption_production_assoc['consumption'] = consumption_production_assoc['consumption']["bcm"]
-            consumption_production_assoc['production'] = consumption_production_assoc['production']["bcm"]
-            consumption_production_assoc = {
-                name: {
-                    cou: {DataParser._process_date(d): DataParser._process_num(c) for d, c in dtc.items()}
-                    for cou, dtc in pc.items()
-                }
-                for name, pc in consumption_production_assoc.items()
-            }
-        with open("../../data/exportAssoc.json", "r") as f:
-            export_assoc = json.load(f)
-            export_assoc = export_assoc["bcm"]
-            export_assoc = {
-                c1: {
-                    c2: {
-                        DataParser._process_date(d): DataParser._process_num(c) for d, c in expo.items()
-                    }
-                    for c2, expo in assoc.items()
-                }
-                for c1, assoc in export_assoc.items()
-            }
-        with open("../../data/graphDB.json", "r") as f:
-            graph_db = json.load(f)
-            graph_db['arcCapTimeAssoc'] = {
-                DataParser._process_date(d): {(edge[0], edge[1]): DataParser._process_num(edge[2]) for edge in edges}
-                for d, edges in graph_db['arcCapTimeAssoc'].items()
-            }
-            graph_db['arcList'] = set(tuple(i) for i in graph_db['arcList'])
-            graph_db['tsoList'] = set(graph_db['tsoList'])
-            graph_db['lngList'] = set(graph_db['lngList'])
-            graph_db['storList'] = set(graph_db['storList'])
-            graph_db['consumVertexList'] = set(graph_db['consumVertexList'])
-            graph_db['consumList'] = set(graph_db['consumList'])
-            graph_db['prodVertexList'] = set(graph_db['prodVertexList'])
-            graph_db['prodList'] = set(graph_db['prodList'])
-            graph_db['exporterVertexList'] = set(graph_db['exporterVertexList'])
-            graph_db['exporterList'] = set(graph_db['exporterList'])
-            graph_db['exportDirections'] = {i: set(j) for i, j in graph_db['exportDirections'].items()}
-        with open("../../data/priceAssoc.json", "r") as f:
-            prices_assoc = json.load(f)
-            prices_assoc = {
-                name: {
-                    DataParser._process_date(d): DataParser._process_num(n) for d, n in pc.items()
-                }
-                for name, pc in prices_assoc.items()
-            }
-        with open("../../data/storageDB.json", "r") as f:
-            storage_db = json.load(f)
-            storage_db = storage_db["aggregated"]
-            storage_db = {
-                name: {
-                    "CC": st["CC"],
-                    "DayData": {DataParser._process_date(d): {c: DataParser._process_num(n) for c, n in ns.items()}
-                                for d, ns in st["DayData"].items()},
-                    "MonthData": {DataParser._process_date(d): {c: DataParser._process_num(n) for c, n in ns.items()}
-                                  for d, ns in st["MonthData"].items()}
-                }
-                for name, st in storage_db.items()
-            }
-        with open("../../data/terminalDB.json", "r") as f:
-            terminal_db = json.load(f)
-            terminal_db = {
-                name: {
-                    "CC": st["CC"],
-                    "DayData": {DataParser._process_date(d): {c: DataParser._process_num(n) for c, n in ns.items()}
-                                for d, ns in st["DayData"].items()},
-                    "MonthData": {DataParser._process_date(d): {c: DataParser._process_num(n) for c, n in ns.items()}
-                                  for d, ns in st["MonthData"].items()}
-                }
-                for name, st in terminal_db.items()
-            }
-
-        return EGMData(
-            cc_list_full,
-            consumption_production_assoc,
-            export_assoc,
-            graph_db,
-            prices_assoc,
-            storage_db,
-            terminal_db
-        )
+from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
+from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData, DataParser
 
 
 class EGRMinCostFlowModel:
     def __init__(self, data: EGMData, dates: tp.List[datetime]):
-        self._data = data
-        self._dates = dates
+        self._data: EGMData = data
+        self._dates: tp.List[datetime] = dates
 
-        self._model = None
-        self._ubmodel = None
+        self._model: Model = Model()
+        self._ub_model = UBModel(self._model)
 
-        self._f_T_pi = dict()
-        self._f_pi_prod = dict()
-        self._f_arc = dict()
-        self._f_cons_c = dict()
-        self._f_c_D = dict()
-        self._f_ugs = dict()
+        _arc = tp.Tuple[str, str]
+        self._f_pi_prod: tp.Dict[datetime, tp.Dict[_arc, Var]] = dict()
+        self._f_arc: tp.Dict[datetime, tp.Dict[_arc, Var]] = dict()
+        self._f_cons_c: tp.Dict[datetime, tp.Dict[_arc, Var]] = dict()
+        self._f_ugs: tp.Dict[datetime, tp.Dict[_arc, Var]] = dict()
 
         # верхние границы
-        self._known_ub = list()
-        self._unknown_ub = list()
+        self._known_ub: tp.List[Constraint] = list()
+        self._unknown_ub: tp.List[Constraint] = list()
+
+        self._var_obj: tp.List[Var] = list()
 
         self._init_model()
         self._init_ub_model()
@@ -192,21 +81,21 @@ class EGRMinCostFlowModel:
 
         vertex_out = graph["consumVertexList"]
 
-        self._f_T_pi = f_T_pi = {v: Var(f"flow_Theta_pi_({v})") for v in vertex_in}
+        f_T_pi = {v: Var(f"flow_Theta_pi_({v})") for v in vertex_in}
         self._f_pi_prod = f_pi_prod = {d: {v: Var(f"flow_({d})_pi_({v})") for v in vertex_in} for d in self._dates}
         self._f_arc = f_arc = {
             d: {(i, j): Var(f"flow_({d})_({i},{j})") for i in arcs_fan_out for j in arcs_fan_out[i]}
             for d in self._dates
         }
         self._f_cons_c = f_cons_c = {d: {v: Var(f"flow_({d})_({v})_c") for v in vertex_out} for d in self._dates}
-        self._f_c_D = f_c_D = {v: Var(f"flow_c_D_({v})") for v in vertex_out}
+        f_c_D = {v: Var(f"flow_c_D_({v})") for v in vertex_out}
 
         delta = self._dates[1] - self._dates[0]
         exp_dates = [self._dates[0] - delta] + self._dates + [self._dates[-1] + delta]
         self._f_ugs = f_ugs = {
-            u: {
-                di: Var(f"flow_ugs_({u})_({di})_({exp_dates[i + 1]})") for i, di in enumerate(exp_dates[:-1])
-            } for u in graph["storList"]
+            di: {
+                u: Var(f"flow_ugs_({u})_({di})_({exp_dates[i + 1]})") for u in graph["storList"]
+            } for i, di in enumerate(exp_dates[:-1])
         }
 
         # верхние границы
@@ -250,7 +139,7 @@ class EGRMinCostFlowModel:
             for v in graph["storList"]:
                 cap = self._data.storage_db[v]["MonthData"][d]["workingGasVolume"]
                 temp = m.add_constr(
-                    f_ugs[v][d].e <= cap
+                    f_ugs[d][v].e <= cap
                 )
                 (unknown_ub if cap is LPNan else known_ub).append(temp)
 
@@ -272,8 +161,8 @@ class EGRMinCostFlowModel:
                 in_ = sum(f_arc[d][w, v] for w in arcs_fan_in[v])
                 out_ = sum(f_arc[d][v, w] for w in arcs_fan_out[v])
                 if v in graph["storList"]:
-                    out_ += f_ugs[v][d]
-                    in_ += f_ugs[v][exp_dates[i]]
+                    out_ += f_ugs[d][v]
+                    in_ += f_ugs[exp_dates[i]][v]
                 m.add_constr(in_ == out_)
 
         # from_A_to_B
@@ -289,17 +178,39 @@ class EGRMinCostFlowModel:
         # естественные ограничения
         m.add_constrs(v.e >= 0 for v in m.vars)
 
-        print(len(m.vars))
-        print(len(m.constraints))
+        # целевая функция
+        self._var_obj = [v for v in m.vars if v not in f_T_pi and v not in f_c_D]
+        m.add_obj(
+            LinExpr(0) + sum(self._var_obj),
+            Sense.MIN
+        )
 
     def _init_ub_model(self):
-        m = self._model
-        ub_m = UBModel(self._model)
-        c = ub_m.init_c_as_var()
-        b = ub_m.init_b_as_var(self._unknown_ub)
+        ub_m = self._ub_model = UBModel(self._model)
+        ub_m.set_x0(self._get_x_0())
 
-        x_0 = self._get_x_0()
-        print(x_0)
+        # b = ub_m.init_b_as_var()
+        # ub_m.set_b0(self._known_ub)
+        b = ub_m.init_b_as_var(self._unknown_ub)
+        ub_m.add_constrs(bi.e >= 0 for bi in b.values())
+
+        self._init_price_constrs()
+
+    def _init_price_constrs(self):
+        alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+        beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+
+        pa = self._data.prices_assoc
+        c = self._ub_model.init_c_as_var(self._var_obj)
+        self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
+
+        for d in self._dates:
+            for v in itertools.chain(self._f_pi_prod[d].values(), self._f_cons_c[d].values(), self._f_arc[d].values()):
+                self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
+
+        for d in itertools.chain([self._dates[0] - (self._dates[1] - self._dates[0])], self._dates):
+            for v in self._f_ugs[d].values():
+                self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
 
     def _get_x_0(self):
         graph = self._data.graph_db
@@ -313,7 +224,7 @@ class EGRMinCostFlowModel:
         cc_tso = {i: set() for i in graph["vertexCountryAssoc"].values()}
 
         delta = self._dates[1] - self._dates[0]
-        exp_dates = [self._dates[0] - delta] + self._dates + [self._dates[-1] + delta]
+        exp_dates = [self._dates[0] - delta] + self._dates
 
         for i, j in graph["vertexCountryAssoc"].items():
             cc_tso[j].add(i)
@@ -324,25 +235,34 @@ class EGRMinCostFlowModel:
                 for v2 in fanout:
                     edge = v1, v2
                     if v1 in graph["lngList"] and v2 in sos_lng:
-                        x_0[self._f_arc[d][v1, v2]] = self._data.terminal_db[v1]["MonthData"][d]["sendOut"]
+                        if (x0 := self._data.terminal_db[v1]["MonthData"][d]["sendOut"]) != LPNan:
+                            x_0[self._f_arc[d][edge]] = x0
                     if v1 in sos_stor_in and v2 in graph["storList"]:
-                        x_0[self._f_arc[d][v1, v2]] = self._data.storage_db[v2]["MonthData"][d]["injection"]
+                        if (x0 := self._data.storage_db[v2]["MonthData"][d]["injection"]) != LPNan:
+                            x_0[self._f_arc[d][edge]] = x0
                     if v1 in graph["storList"] and v2 in sos_stor_out:
-                        x_0[self._f_arc[d][v1, v2]] = self._data.storage_db[v1]["MonthData"][d]["withdrawal"]
+                        if (x0 := self._data.storage_db[v1]["MonthData"][d]["withdrawal"]) != LPNan:
+                            x_0[self._f_arc[d][edge]] = x0
 
             for c1, c_out in graph['exportDirections'].items():
                 for c2 in c_out:
-                    x_0[self._f_arc[d][c1, c2]] = self._data.export_assoc[c1][c2][d]
+                    if (x0 := self._data.export_assoc[c1][c2][d]) != LPNan:
+                        x_0[self._f_arc[d][f"export {c1}", c2]] = x0
 
             for v1 in graph["prodVertexList"]:
-                x_0[self._f_arc[d][v1, f"{v1} sos"]] = self._data.consumption_production_assoc["production"][v1][d]
+                v2 = v1.replace("prod ", "")
+                if (x0 := self._data.consumption_production_assoc["production"][v2][d]) != LPNan:
+                    x_0[self._f_arc[d][v1, f"{v1} sos"]] = x0
 
             for v2 in graph["consumVertexList"]:
-                x_0[self._f_arc[d][f"{v2} sos", v2]] = self._data.consumption_production_assoc["consumption"][v2][d]
+                v1 = v2.replace("consum ", "")
+                if (x0 := self._data.consumption_production_assoc["consumption"][v1][d]) != LPNan:
+                    x_0[self._f_arc[d][f"{v2} sos", v2]] = x0
 
-        for d in exp_dates[:-1]:
+        for d in exp_dates:
             for v in graph["storList"]:
-                x_0[self._f_ugs[v][d]] = self._data.storage_db[v]["MonthData"][d]["gasInStorage"]
+                if (x0 := self._data.storage_db[v]["MonthData"][d]["gasInStorage"]) != LPNan:
+                    x_0[self._f_ugs[d][v]] = x0
 
         return x_0
 

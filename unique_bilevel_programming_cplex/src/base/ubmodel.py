@@ -35,7 +35,7 @@ class UBModel:
             self._c = {i: Var(f"c_{i.name}") for i in self._c}
             self._vars.update(self._c.values())
             return dict(self._c)
-        elif len(args) == 1 and isinstance(args, (list, set)):
+        elif len(args) == 1 and isinstance(args[0], (list, set)):
             res = dict()
             for i in args[0]:
                 self._c[i] = Var(f"c_{i.name}")
@@ -76,10 +76,8 @@ class UBModel:
         return dict(self._b)
 
     def add_constr(self, constr: Constraint) -> None:
-        if all(i in self._vars for i in constr.vars):
-            self._constraints.append(constr)
-        else:
-            raise ValueError
+        self._constraints.append(constr)
+        return constr
 
     def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
         for i in constrs:

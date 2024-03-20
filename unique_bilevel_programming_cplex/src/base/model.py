@@ -1,6 +1,6 @@
 import typing as tp
 
-from unique_bilevel_programming_cplex.src.base.common import Sense
+from unique_bilevel_programming_cplex.src.base.common import Sense, Integral
 from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
 
 
@@ -31,9 +31,7 @@ class Model:
             names.append(self.add_constr(i))
         return names
 
-    def add_obj(self, expr: LinExpr, sense: Sense) -> None:
-        if self.obj is not None:
-            self._vars = self.vars.difference(self.obj.vars.difference(expr.vars))
+    def add_obj(self, expr: tp.Union[LinExpr], sense: Sense) -> None:
         self.obj = expr
         self.sense = sense
         self._vars.update(expr.vars)
