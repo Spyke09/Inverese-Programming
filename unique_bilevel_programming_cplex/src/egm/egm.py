@@ -1,4 +1,5 @@
 import itertools
+import logging
 import typing as tp
 from datetime import datetime
 
@@ -29,9 +30,17 @@ class EGRMinCostFlowModel:
 
         self._var_obj: tp.List[Var] = list()
 
+        self._logger = logging.getLogger("EGRMinCostFlowModel")
+
     def setup(self):
+        self._logger.info("Starting the Min-cost-flow model initialization")
         self._init_model()
+        self._logger.info(
+            f"Initialization is finished. Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints"
+        )
+        self._logger.info("Starting the UB-Inv model initialization")
         self._init_ub_model()
+        self._logger.info("UB-Inv model initialization is finished")
 
     def solve(self):
         self._ub_model.init()
@@ -191,7 +200,7 @@ class EGRMinCostFlowModel:
         )
 
     def _init_ub_model(self):
-        ub_m = self._ub_model = UBModel(self._model)
+        ub_m = self._ub_model = UBModel(self._model, big_m=1e13, eps=1e-4)
         ub_m.set_x0(self._get_x_0())
 
         # b = ub_m.init_b_as_var()
@@ -202,20 +211,19 @@ class EGRMinCostFlowModel:
         self._init_price_constrs()
 
     def _init_price_constrs(self):
-        alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
-        beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
-
         pa = self._data.prices_assoc
         c = self._ub_model.init_c_as_var(self._var_obj)
         self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
 
-        for d in self._dates:
-            for v in itertools.chain(self._f_pi_prod[d].values(), self._f_cons_c[d].values(), self._f_arc[d].values()):
-                self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
-
-        for d in itertools.chain([self._dates[0] - (self._dates[1] - self._dates[0])], self._dates):
-            for v in self._f_ugs[d].values():
-                self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
+        # alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+        # beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+        # for d in self._dates:
+        #     for v in itertools.chain(self._f_pi_prod[d].values(), self._f_cons_c[d].values(), self._f_arc[d].values()):
+        #         self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
+        #
+        # for d in itertools.chain([self._dates[0] - (self._dates[1] - self._dates[0])], self._dates):
+        #     for v in self._f_ugs[d].values():
+        #         self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
 
     def _get_x_0(self):
         graph = self._data.graph_db

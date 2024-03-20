@@ -1,4 +1,5 @@
 import json
+import logging
 import typing as tp
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,6 +19,8 @@ class EGMData:
 
 
 class DataParser:
+    _logger = logging.getLogger("DataParser")
+
     @staticmethod
     def _process_num(num):
         return LPNan if num == "Missing" else LPFloat(num)
@@ -28,6 +31,7 @@ class DataParser:
 
     @staticmethod
     def get_data():
+        DataParser._logger.info("Starting to read and pre-process data.")
         with open("../../data/ccListFull.json", "r") as f:
             cc_list_full = set(json.load(f))
         with open("../../data/consumptionProductionAssoc.json", "r") as f:
@@ -104,6 +108,7 @@ class DataParser:
                 for name, st in terminal_db.items()
             }
 
+        DataParser._logger.info("Reading and preprocessing data is finished.")
         return EGMData(
             cc_list_full,
             consumption_production_assoc,
