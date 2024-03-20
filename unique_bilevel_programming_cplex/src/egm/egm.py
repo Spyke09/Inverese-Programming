@@ -6,7 +6,7 @@ from unique_bilevel_programming_cplex.src.base.common import LPNan, Sense
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.ubmodel import UBModel
 from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
-from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData, DataParser
+from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData
 
 
 class EGRMinCostFlowModel:
@@ -29,8 +29,13 @@ class EGRMinCostFlowModel:
 
         self._var_obj: tp.List[Var] = list()
 
+    def setup(self):
         self._init_model()
         self._init_ub_model()
+
+    def solve(self):
+        self._ub_model.init()
+        return self._ub_model.solve()
 
     def _init_model(self):
         graph = self._data.graph_db
@@ -235,40 +240,33 @@ class EGRMinCostFlowModel:
                 for v2 in fanout:
                     edge = v1, v2
                     if v1 in graph["lngList"] and v2 in sos_lng:
-                        if (x0 := self._data.terminal_db[v1]["MonthData"][d]["sendOut"]) != LPNan:
+                        if (x0 := self._data.terminal_db[v1]["MonthData"][d]["sendOut"]) is not LPNan:
                             x_0[self._f_arc[d][edge]] = x0
                     if v1 in sos_stor_in and v2 in graph["storList"]:
-                        if (x0 := self._data.storage_db[v2]["MonthData"][d]["injection"]) != LPNan:
+                        if (x0 := self._data.storage_db[v2]["MonthData"][d]["injection"]) is not LPNan:
                             x_0[self._f_arc[d][edge]] = x0
                     if v1 in graph["storList"] and v2 in sos_stor_out:
-                        if (x0 := self._data.storage_db[v1]["MonthData"][d]["withdrawal"]) != LPNan:
+                        if (x0 := self._data.storage_db[v1]["MonthData"][d]["withdrawal"]) is not LPNan:
                             x_0[self._f_arc[d][edge]] = x0
 
             for c1, c_out in graph['exportDirections'].items():
                 for c2 in c_out:
-                    if (x0 := self._data.export_assoc[c1][c2][d]) != LPNan:
+                    if (x0 := self._data.export_assoc[c1][c2][d]) is not LPNan:
                         x_0[self._f_arc[d][f"export {c1}", c2]] = x0
 
             for v1 in graph["prodVertexList"]:
                 v2 = v1.replace("prod ", "")
-                if (x0 := self._data.consumption_production_assoc["production"][v2][d]) != LPNan:
+                if (x0 := self._data.consumption_production_assoc["production"][v2][d]) is not LPNan:
                     x_0[self._f_arc[d][v1, f"{v1} sos"]] = x0
 
             for v2 in graph["consumVertexList"]:
                 v1 = v2.replace("consum ", "")
-                if (x0 := self._data.consumption_production_assoc["consumption"][v1][d]) != LPNan:
+                if (x0 := self._data.consumption_production_assoc["consumption"][v1][d]) is not LPNan:
                     x_0[self._f_arc[d][f"{v2} sos", v2]] = x0
 
         for d in exp_dates:
             for v in graph["storList"]:
-                if (x0 := self._data.storage_db[v]["MonthData"][d]["gasInStorage"]) != LPNan:
+                if (x0 := self._data.storage_db[v]["MonthData"][d]["gasInStorage"]) is not LPNan:
                     x_0[self._f_ugs[d][v]] = x0
 
         return x_0
-
-
-if __name__ == "__main__":
-    EGRMinCostFlowModel(
-        DataParser.get_data(),
-        [datetime(2019, i, 1) for i in range(1, 13)]
-    )

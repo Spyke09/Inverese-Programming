@@ -10,6 +10,8 @@ from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sens
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
 from unique_bilevel_programming_cplex.src.base.model import Model
 
+import logging
+
 
 class UBModel:
     def __init__(self, model: Model, eps=1e-2, big_m=1e+2):
@@ -29,6 +31,8 @@ class UBModel:
         self._lam = None
 
         self._obj_p = {"c": 1, "b": 1, "x": 1}
+
+        self._logger = logging.getLogger("UBModel")
 
     def init_c_as_var(self, *args) -> tp.Dict[Var, Var]:
         if len(args) == 0:
@@ -77,13 +81,14 @@ class UBModel:
 
     def add_constr(self, constr: Constraint) -> None:
         self._constraints.append(constr)
-        return constr
+        self._vars.update(constr.vars)
 
     def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
         for i in constrs:
             self.add_constr(i)
 
     def init(self) -> None:
+        self._logger.info("Start model initialization")
         eps = self._eps
         big_m = self._big_m
 
@@ -125,6 +130,8 @@ class UBModel:
             elif con.sign == Sign.L_EQUAL:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
         self._lam = list(lam.values())
+
+        self._logger.info("Finish model initialization")
 
     def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
         m = docplex.mp.model.Model(
@@ -169,6 +176,7 @@ class UBModel:
         return new_model
 
     def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+        self._logger.info("Start solve UB-Inv model")
         m, x = self._init_cplex_model()
         lam_l = len(self._model.vars) - 1
         lam_u = len(self._model.constraints) + 1
@@ -176,19 +184,25 @@ class UBModel:
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
+            self._logger.info(f"\tLower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}")
             con = m.add_constraint(m.sum(x[i] for i in self._lam) == lam_m)
             m.solve()
 
             if m.solution is None:
+                self._logger.info("Solution is None")
                 lam_u = lam_m
             else:
                 sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
                 if self._check_unique(sol) <= eps:
+                    self._logger.info("Solution is unique")
                     lam_u = lam_m
                     final_sol = sol
                 else:
+                    self._logger.info("Solution is not unique")
                     lam_l = lam_m
             m.remove_constraint(con)
+
+        self._logger.info("Finish solve UB-Inv model")
         return final_sol
 
     def _check_unique(self, solution):
