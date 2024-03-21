@@ -8,16 +8,16 @@ if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(name)s: %(message)s', datefmt='%H:%M:%S',
                         level=logging.DEBUG)
 
-    model = egm.EGRMinCostFlowModel(
-        data_parser.DataParser.get_data(),
-        [datetime(2019, i, 1) for i in range(1, 13)],
-        big_m=1e8,
-        eps=1e-2,
-        lag=12,
-        force_b=False
-    )
+    def egm_test_1():
+        model = egm.EGRMinCostFlowModel(
+            data_parser.DataParser.get_data(),
+            [datetime(2019, i, 1) for i in range(1, 13)],
+            big_m=1e8,
+            eps=1e-2,
+            lag=12,
+            force_b=False
+        )
 
-    model.setup()
+        model.setup()
 
-    solution = model.solve()
-    print(solution)
+        solution = model.solve()
