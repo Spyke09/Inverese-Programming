@@ -10,7 +10,6 @@ LPVector = list
 LPVectorT = tp.List
 
 
-
 class VarType(Enum):
     REAL = 0
     INTEGER = 1

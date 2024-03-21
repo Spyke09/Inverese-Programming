@@ -217,18 +217,18 @@ class EGRMinCostFlowModel:
         c = self._ub_model.init_c_as_var(self._var_obj)
         self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
 
-        alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
-        beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
-        for v in vertex_in:
-            alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
-            beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
-            for d in self._f_pi_prod:
-
-
-        for v in itertools.chain(, self._f_cons_c[d].values(), self._f_arc[d].values()):
-            self._ub_model.add_constr(
-                alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v]
-            )
+        # alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+        # beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+        # for v in vertex_in:
+        #     alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+        #     beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+        #     for d in self._f_pi_prod:
+        #
+        #
+        # for v in itertools.chain(, self._f_cons_c[d].values(), self._f_arc[d].values()):
+        #     self._ub_model.add_constr(
+        #         alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v]
+        #     )
         #
         # for d in itertools.chain([self._dates[0] - (self._dates[1] - self._dates[0])], self._dates):
         #     for v in self._f_ugs[d].values():

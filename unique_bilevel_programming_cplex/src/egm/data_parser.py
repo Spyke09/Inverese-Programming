@@ -22,7 +22,7 @@ class DataParser:
     _logger = logging.getLogger("DataParser")
 
     @staticmethod
-    def _process_num(num):
+    def _process_num(num, c=1e4):
         return LPNan if num == "Missing" else LPFloat(num)
 
     @staticmethod
@@ -31,7 +31,7 @@ class DataParser:
 
     @staticmethod
     def get_data():
-        coef = 0.000097158
+        c_ns = 0.000097158
         DataParser._logger.info("Starting to read and pre-process data.")
         with open("../../data/ccListFull.json", "r") as f:
             cc_list_full = set(json.load(f))
@@ -62,7 +62,7 @@ class DataParser:
             graph_db = json.load(f)
             graph_db['arcCapTimeAssoc'] = {
                 DataParser._process_date(d):
-                    {(edge[0], edge[1]): DataParser._process_num(edge[2]) * coef for edge in edges}
+                    {(edge[0], edge[1]): DataParser._process_num(edge[2]) * c_ns for edge in edges}
                 for d, edges in graph_db['arcCapTimeAssoc'].items()
             }
             graph_db['arcList'] = set(tuple(i) for i in graph_db['arcList'])
@@ -80,7 +80,7 @@ class DataParser:
             prices_assoc = json.load(f)
             prices_assoc = {
                 name: {
-                    DataParser._process_date(d): DataParser._process_num(n) for d, n in pc.items()
+                    DataParser._process_date(d): DataParser._process_num(n, 1e-3) for d, n in pc.items()
                 }
                 for name, pc in prices_assoc.items()
             }
@@ -91,11 +91,11 @@ class DataParser:
                 name: {
                     "CC": st["CC"],
                     "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n).coef for c, n in ns.items()}
+                        DataParser._process_date(d): {c: DataParser._process_num(n) * c_ns for c, n in ns.items()}
                         for d, ns in st["DayData"].items()
                     },
                     "MonthData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n) * coef for c, n in ns.items()}
+                        DataParser._process_date(d): {c: DataParser._process_num(n) * c_ns for c, n in ns.items()}
                         for d, ns in st["MonthData"].items()
                     }
                 }
@@ -107,12 +107,12 @@ class DataParser:
                 name: {
                     "CC": st["CC"],
                     "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n) * coef for c, n in ns.items()}
+                        DataParser._process_date(d): {c: DataParser._process_num(n) * c_ns for c, n in ns.items()}
                         for d, ns in st["DayData"].items()
                     },
                     "MonthData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n) * coef for c, n in ns.items()}
-                          for d, ns in st["MonthData"].items()
+                        DataParser._process_date(d): {c: DataParser._process_num(n) * c_ns for c, n in ns.items()}
+                        for d, ns in st["MonthData"].items()
                     }
                 }
                 for name, st in terminal_db.items()
