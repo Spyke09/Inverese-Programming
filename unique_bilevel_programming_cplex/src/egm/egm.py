@@ -11,9 +11,10 @@ from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData
 
 
 class EGRMinCostFlowModel:
-    def __init__(self, data: EGMData, dates: tp.List[datetime]):
+    def __init__(self, data: EGMData, dates: tp.List[datetime], lag=12):
         self._data: EGMData = data
         self._dates: tp.List[datetime] = dates
+        self._lag = lag
 
         self._model: Model = Model()
         self._ub_model = UBModel(self._model)
@@ -212,14 +213,22 @@ class EGRMinCostFlowModel:
 
     def _init_price_constrs(self):
         pa = self._data.prices_assoc
+        vertex_in = self._f_pi_prod[self._dates[0]].keys()
         c = self._ub_model.init_c_as_var(self._var_obj)
         self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
 
-        # alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
-        # beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
-        # for d in self._dates:
-        #     for v in itertools.chain(self._f_pi_prod[d].values(), self._f_cons_c[d].values(), self._f_arc[d].values()):
-        #         self._ub_model.add_constr(alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v])
+        alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+        beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+        for v in vertex_in:
+            alpha = {v: Var(f"alpha_({v.name})") for v in self._var_obj}
+            beta = {v: Var(f"beta_({v.name})") for v in self._var_obj}
+            for d in self._f_pi_prod:
+
+
+        for v in itertools.chain(, self._f_cons_c[d].values(), self._f_arc[d].values()):
+            self._ub_model.add_constr(
+                alpha[v] * pa["TTFG1MON Index"][d] + beta[v] * pa["CO1 Comdty"][d] == c[v]
+            )
         #
         # for d in itertools.chain([self._dates[0] - (self._dates[1] - self._dates[0])], self._dates):
         #     for v in self._f_ugs[d].values():
