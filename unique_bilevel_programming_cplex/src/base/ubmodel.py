@@ -1,3 +1,4 @@
+import logging
 import typing as tp
 
 import docplex.mp
@@ -7,10 +8,8 @@ import docplex.mp.model
 import docplex.mp.vartype
 
 from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
-from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
 from unique_bilevel_programming_cplex.src.base.model import Model
-
-import logging
+from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
 
 
 class UBModel:
@@ -79,9 +78,14 @@ class UBModel:
     def get_b(self) -> tp.Dict[Constraint, tp.Union[Var, LPFloat]]:
         return dict(self._b)
 
-    def add_constr(self, constr: Constraint) -> None:
-        self._constraints.append(constr)
-        self._vars.update(constr.vars)
+    def add_constr(self, constr: tp.Union[Constraint, bool]) -> None:
+        if isinstance(constr, bool) and not constr:
+            raise ValueError("Always false constraint")
+        elif isinstance(constr, Constraint):
+            self._constraints.append(constr)
+            self._vars.update(constr.vars)
+        else:
+            raise TypeError
 
     def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
         for i in constrs:
@@ -149,10 +153,11 @@ class UBModel:
         for con in self._constraints:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
+        c, c_0, b, b_0, x_0 = self._c, self._c_0, self._b, self._b_0, self._x_0
         m.minimize(
-            m.sum(m.abs(x[self._c[i]] - self._c_0[i]) for i in self._c if self._c[i] in x and i in self._c_0) * self._obj_p["c"] +
-            m.sum(m.abs(x[self._b[i]] - self._b_0[i]) for i in self._b if self._b[i] in x and i in self._b_0) * self._obj_p["b"] +
-            m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars if i in x and i in self._x_0) * self._obj_p["x"]
+            m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"] +
+            m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"] +
+            m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
         )
 
         return m, x
@@ -180,7 +185,6 @@ class UBModel:
         m, x = self._init_cplex_model()
         lam_l = len(self._model.vars) - 1
         lam_u = len(self._model.constraints) + 1
-        eps = (self._eps ** 2) / 10
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
@@ -218,10 +222,13 @@ class UBModel:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), b_coef))
 
         old_obj_v = 0
-        for i in self._model.vars:
+        for i in self._model.obj.vars:
             old_obj_v += solution[i] * (solution[self._c[i]] if isinstance(self._c[i], Var) else self._c[i])
 
-        c = {i: (solution[self._c[i]] if isinstance(self._c[i], Var) else self._model.obj.vars_coef[i]) for i in self._model.vars}
+        c = {
+            i: (solution[self._c[i]] if isinstance(self._c[i], Var) else self._model.obj.vars_coef[i])
+            for i in self._model.obj.vars
+        }
         m.add_constraint(m.sum(x[i] * c[i] for i in self._model.obj.vars) == old_obj_v)
 
         eps = self._eps * 10
@@ -230,9 +237,6 @@ class UBModel:
         self._logger.info("Start checking unique")
 
         m.solve()
-        if m.solution is not None:
-            diff = max(m.abs(x[i].solution_value - solution[i]) for i in self._model.vars)
-            self._logger.info(f"Deviation is {diff}")
         return m.solution is None
 
     @property

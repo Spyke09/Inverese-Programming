@@ -10,6 +10,10 @@ LPVector = list
 LPVectorT = tp.List
 
 
+def is_lp_nan(num):
+    return np.isnan(num)
+
+
 class VarType(Enum):
     REAL = 0
     INTEGER = 1

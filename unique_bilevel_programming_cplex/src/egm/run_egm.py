@@ -10,7 +10,11 @@ if __name__ == "__main__":
 
     model = egm.EGRMinCostFlowModel(
         data_parser.DataParser.get_data(),
-        [datetime(2019, i, 1) for i in range(1, 4)]
+        [datetime(2019, i, 1) for i in range(1, 13)],
+        big_m=1e8,
+        eps=1e-2,
+        lag=12,
+        force_b=False
     )
 
     model.setup()
