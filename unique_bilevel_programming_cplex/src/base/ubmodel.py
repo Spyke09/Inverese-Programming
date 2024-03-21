@@ -1,3 +1,4 @@
+import logging
 import typing as tp
 
 import docplex.mp
@@ -6,9 +7,9 @@ import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
 
-from unique_bilevel_programming_cplex.src.common import LPFloat, Sign, Sense
-from unique_bilevel_programming_cplex.src.var_expr_con import LinExpr, Constraint, Var, VarType
-from unique_bilevel_programming_cplex.src.model import Model
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
+from unique_bilevel_programming_cplex.src.base.model import Model
+from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
 
 
 class UBModel:
@@ -20,44 +21,56 @@ class UBModel:
         self._constraints: tp.List[Constraint] = list()
         self._vars: tp.Set[Var] = set(model.vars)
 
-        self._x_0: tp.Optional[tp.Dict[Var, LPFloat]] = None
+        self._x_0: tp.Optional[tp.Dict[Var, LPFloat]] = dict()
         self._c: tp.Dict[Var, tp.Union[Var, LPFloat]] = model.obj.vars_coef
-        self._c_0: tp.Dict[Var, LPFloat] = dict(model.obj.vars_coef)
+        self._c_0: tp.Dict[Var, LPFloat] = dict()
         self._b: tp.Dict[Constraint, tp.Union[Var, LPFloat]] = {i: i.b_coef for i in model.constraints}
-        self._b_0: tp.Dict[Constraint, LPFloat] = dict(self._b)
+        self._b_0: tp.Dict[Constraint, LPFloat] = dict()
 
         self._lam = None
 
         self._obj_p = {"c": 1, "b": 1, "x": 1}
 
-    def init_c_as_var(self, *args) -> None:
+        self._logger = logging.getLogger("\tUBModel")
+
+    def init_c_as_var(self, *args) -> tp.Dict[Var, Var]:
         if len(args) == 0:
             self._c = {i: Var(f"c_{i.name}") for i in self._c}
             self._vars.update(self._c.values())
-        elif len(args) == 1 and isinstance(args, (list, set)):
+            return dict(self._c)
+        elif len(args) == 1 and isinstance(args[0], (list, set)):
+            res = dict()
             for i in args[0]:
                 self._c[i] = Var(f"c_{i.name}")
+                res[i] = self._c[i]
                 self._vars.add(self._c[i])
+            return res
 
-    def init_b_as_var(self, *args) -> None:
+    def init_b_as_var(self, *args) -> tp.Dict[Constraint, Var]:
         if len(args) == 0:
             self._b = {i: Var(f"b_{i.name}") for i in self._b}
             self._vars.update(self._b.values())
+            return self._b
         elif len(args) == 1 and isinstance(args[0], (list, set)):
+            res = dict()
             for i in args[0]:
                 self._b[i] = Var(f"b_{i.name}")
+                res[i] = self._b[i]
                 self._vars.add(self._b[i])
+            return res
+
+    def set_b0(self, constrs: tp.List[Constraint]) -> None:
+        self._b_0 = dict()
+        for con in constrs:
+            self._b_0[con] = con.b_coef
+
+    def set_c0(self, x_coef: tp.Dict[Var, LPFloat]) -> None:
+        self._c_0 = dict()
+        for x, coef in x_coef:
+            self._c_0[x] = coef
 
     def set_x0(self, x_0: tp.Dict[Var, LPFloat]) -> None:
-        self._x_0 = dict()
-        for x_i, val_x_i in x_0.items():
-            if x_i in self._model.vars:
-                self._x_0[x_i] = val_x_i
-            else:
-                raise ValueError
-
-        if len(self._x_0) != len(self._model.vars):
-            raise ValueError
+        self._x_0 = dict(x_0)
 
     def get_c(self) -> tp.Dict[Var, tp.Union[Var, LPFloat]]:
         return dict(self._c)
@@ -65,17 +78,21 @@ class UBModel:
     def get_b(self) -> tp.Dict[Constraint, tp.Union[Var, LPFloat]]:
         return dict(self._b)
 
-    def add_constr(self, constr: Constraint) -> None:
-        if all(i in self._vars for i in constr.vars):
+    def add_constr(self, constr: tp.Union[Constraint, bool]) -> None:
+        if isinstance(constr, bool) and not constr:
+            raise ValueError("Always false constraint")
+        elif isinstance(constr, Constraint):
             self._constraints.append(constr)
+            self._vars.update(constr.vars)
         else:
-            raise ValueError
+            raise TypeError
 
     def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
         for i in constrs:
             self.add_constr(i)
 
     def init(self) -> None:
+        self._logger.info("Starting UB-Inv model initialization.")
         eps = self._eps
         big_m = self._big_m
 
@@ -118,6 +135,8 @@ class UBModel:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
         self._lam = list(lam.values())
 
+        self._logger.info("UB-Inv model initialization is finished.")
+
     def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
         m = docplex.mp.model.Model(
             name=f'UniqueBilevelProgram'
@@ -134,13 +153,11 @@ class UBModel:
         for con in self._constraints:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
-        m.minimize_static_lex(
-            [
-                -m.sum(x[i] for i in self._lam),
-                m.sum(m.abs(x[self._c[i]] - self._c_0[i]) for i in self._c if self._c[i] in x) * self._obj_p["c"] +
-                m.sum(m.abs(x[self._b[i]] - self._b_0[i]) for i in self._b if self._b[i] in x) * self._obj_p["b"] +
-                m.sum(m.abs(x[i] - self._x_0[i]) for i in self._model.vars) * self._obj_p["x"]
-            ]
+        c, c_0, b, b_0, x_0 = self._c, self._c_0, self._b, self._b_0, self._x_0
+        m.minimize(
+            m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"] +
+            m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"] +
+            m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
         )
 
         return m, x
@@ -164,13 +181,63 @@ class UBModel:
         return new_model
 
     def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+        self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._init_cplex_model()
-        m.solve()
-        if m.solution is None:
-            return None
+        lam_l = len(self._model.vars) - 1
+        lam_u = len(self._model.constraints) + 1
+        final_sol = None
+        while lam_l + 1 < lam_u:
+            lam_m = (lam_u + lam_l) // 2
+            self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}")
+            con = m.add_constraint(m.sum(x[i] for i in self._lam) == lam_m)
+            m.solve()
 
-        print(m.blended_objective_values)
-        return {i: round(xi.solution_value, 7) for i, xi in x.items()}
+            if m.solution is None:
+                self._logger.info("Solution is None")
+                lam_u = lam_m
+            else:
+                sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
+                if self._check_unique(sol):
+                    self._logger.info("Solution is unique")
+                    lam_u = lam_m
+                    final_sol = sol
+                else:
+                    self._logger.info("Solution is not unique")
+                    lam_l = lam_m
+            m.remove_constraint(con)
+
+        self._logger.info("Finished to solve UB-Inv model")
+        return final_sol
+
+    def _check_unique(self, solution):
+        m = docplex.mp.model.Model(
+            name=f'CheckUnique'
+        )
+        x = dict()
+        for i in self._model.vars:
+            x[i] = m.continuous_var(name=i.name, lb=-m.infinity)
+
+        for con in self._model.constraints:
+            b_coef = solution[self._b[con]] if isinstance(self._b[con], Var) else con.b_coef
+            m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), b_coef))
+
+        old_obj_v = 0
+        for i in self._model.obj.vars:
+            old_obj_v += solution[i] * (solution[self._c[i]] if isinstance(self._c[i], Var) else self._c[i])
+
+        c = {
+            i: (solution[self._c[i]] if isinstance(self._c[i], Var) else self._model.obj.vars_coef[i])
+            for i in self._model.obj.vars
+        }
+        m.add_constraint(m.sum(x[i] * c[i] for i in self._model.obj.vars) == old_obj_v)
+
+        eps = self._eps * 10
+        m.add_constraint(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars) >= eps)
+        # m.maximize(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars))
+        self._logger.info("Start checking unique")
+
+        m.solve()
+        return m.solution is None
 
     @property
     def to_str(self) -> str:

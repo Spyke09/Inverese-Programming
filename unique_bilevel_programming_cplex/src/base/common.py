@@ -1,10 +1,17 @@
 import typing as tp
 from enum import Enum
 
-LPFloat = float
+import numpy as np
+
+LPFloat = np.float64
+LPNan = np.nan
 Integral = (int, float, LPFloat)
 LPVector = list
 LPVectorT = tp.List
+
+
+def is_lp_nan(num):
+    return np.isnan(num)
 
 
 class VarType(Enum):
@@ -28,7 +35,7 @@ class Sign(Enum):
         if self == Sign.G_EQUAL:
             return a >= b
         if self == Sign.L_EQUAL:
-            return a >= b
+            return a <= b
 
 
 class Sense(Enum):
@@ -48,4 +55,4 @@ class LinExpr:
     pass
 
 
-LPEntity = tp.Union[LPFloat, Var, LinExpr]
+LPEntity = tp.Union[LPFloat, Var, LinExpr, int, float]
