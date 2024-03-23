@@ -7,9 +7,10 @@ import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
 
-from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense, LPNan
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
+import numpy as np
 
 
 class UBModel:
@@ -32,6 +33,29 @@ class UBModel:
         self._obj_p = {"c": 1, "b": 1, "x": 1}
 
         self._logger = logging.getLogger("\tUBModel")
+
+        self._x = None
+
+    def x_metric(self, metric):
+        x_0 = self._x_0
+        x = self._x
+        x_true = np.array([x_0[i] for i in self._model.vars if i in x and i in x_0])
+        x_pred = np.array([x[i].solution_value for i in self._model.vars if i in x and i in x_0])
+        return metric(x_true, x_pred)
+
+    def c_metric(self, metric):
+        c, c_0 = self._c, self._c_0
+        x = self._x
+        c_true = np.array([c_0[i] for i in c if c[i] in x and i in c_0])
+        c_pred = np.array([x[c[i]].solution_value for i in c if c[i] in x and i in c_0])
+        return metric(c_true, c_pred)
+
+    def b_metric(self, metric):
+        b, b_0 = self._b, self._b_0
+        x = self._x
+        b_true = np.array([b_0[i] for i in b if b[i] in x and i in b_0])
+        b_pred = np.array([x[b[i]].solution_value for i in b if b[i] in x and i in b_0])
+        return metric(b_true, b_pred)
 
     def init_c_as_var(self, *args) -> tp.Dict[Var, Var]:
         if len(args) == 0:
@@ -87,7 +111,7 @@ class UBModel:
         else:
             raise TypeError
 
-    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
+    def add_constrs(self, constrs: tp.Iterable[tp.Union[Constraint, bool]]) -> None:
         for i in constrs:
             self.add_constr(i)
 
@@ -154,12 +178,13 @@ class UBModel:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
         c, c_0, b, b_0, x_0 = self._c, self._c_0, self._b, self._b_0, self._x_0
-        m.minimize(
-            m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"] +
-            m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"] +
-            m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
-        )
+        x_std = m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
+        c_std = m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"]
+        b_std = m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"]
 
+        m.minimize(x_std + c_std + b_std)
+
+        self._x = x
         return m, x
 
     def set_obj_priority(self, name, p):
@@ -184,7 +209,8 @@ class UBModel:
         self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._init_cplex_model()
         lam_l = len(self._model.vars) - 1
-        lam_u = len(self._model.constraints) + 1
+        # lam_u = len(self._model.constraints) + 1
+        lam_u = lam_l + 2
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2

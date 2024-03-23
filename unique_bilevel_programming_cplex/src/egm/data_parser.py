@@ -4,6 +4,8 @@ import typing as tp
 from dataclasses import dataclass
 from datetime import datetime
 
+from dateutil import relativedelta
+
 from unique_bilevel_programming_cplex.src.base.common import LPNan, LPFloat
 
 
@@ -19,7 +21,15 @@ class EGMData:
 
 
 class DataParser:
-    _logger = logging.getLogger("DataParser")
+    def __init__(self, date_from, date_to):
+        self._logger = logging.getLogger("DataParser")
+        self._data = None
+        self._date_from = date_from
+        self._date_to = date_to
+
+        self._delta = relativedelta.relativedelta(months=1)
+        self._date_from_d = date_from - self._delta
+        self._date_to_d = date_to + self._delta
 
     @staticmethod
     def _process_num(num, c=1e4, c_ns=1e1):
@@ -29,10 +39,17 @@ class DataParser:
     def _process_date(date):
         return date if isinstance(date, datetime) else datetime.strptime(date, '%Y-%m-%dT%H:%M:%S')
 
-    @staticmethod
-    def get_data():
+    def _check_date(self, date, with_delta=False):
+        if isinstance(date, str):
+            date = self._process_date(date)
+        if not with_delta:
+            return self._date_from <= date <= self._date_to
+        else:
+            return self._date_from_d <= date <= self._date_to_d
+
+    def get_data(self):
         c_ns = 0.000097158
-        DataParser._logger.info("Starting to read and pre-process data.")
+        self._logger.info("Starting to read and pre-process data.")
         with open("../../data/ccListFull.json", "r") as f:
             cc_list_full = set(json.load(f))
         with open("../../data/consumptionProductionAssoc.json", "r") as f:
@@ -41,7 +58,7 @@ class DataParser:
             consumption_production_assoc['production'] = consumption_production_assoc['production']["bcm"]
             consumption_production_assoc = {
                 name: {
-                    cou: {DataParser._process_date(d): DataParser._process_num(c) for d, c in dtc.items()}
+                    cou: {DataParser._process_date(d): DataParser._process_num(c) for d, c in dtc.items() if self._check_date(d)}
                     for cou, dtc in pc.items()
                 }
                 for name, pc in consumption_production_assoc.items()
@@ -52,7 +69,7 @@ class DataParser:
             export_assoc = {
                 c1: {
                     c2: {
-                        DataParser._process_date(d): DataParser._process_num(c) for d, c in expo.items()
+                        DataParser._process_date(d): DataParser._process_num(c) for d, c in expo.items() if self._check_date(d)
                     }
                     for c2, expo in assoc.items()
                 }
@@ -63,7 +80,7 @@ class DataParser:
             graph_db['arcCapTimeAssoc'] = {
                 DataParser._process_date(d):
                     {(edge[0], edge[1]): DataParser._process_num(edge[2], c_ns=c_ns) for edge in edges}
-                for d, edges in graph_db['arcCapTimeAssoc'].items()
+                for d, edges in graph_db['arcCapTimeAssoc'].items() if self._check_date(d)
             }
             graph_db['arcList'] = set(tuple(i) for i in graph_db['arcList'])
             graph_db['tsoList'] = set(graph_db['tsoList'])
@@ -90,13 +107,9 @@ class DataParser:
             storage_db = {
                 name: {
                     "CC": st["CC"],
-                    "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["DayData"].items()
-                    },
                     "MonthData": {
                         DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["MonthData"].items()
+                        for d, ns in st["MonthData"].items() if self._check_date(d, True)
                     }
                 }
                 for name, st in storage_db.items()
@@ -106,19 +119,15 @@ class DataParser:
             terminal_db = {
                 name: {
                     "CC": st["CC"],
-                    "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["DayData"].items()
-                    },
                     "MonthData": {
                         DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["MonthData"].items()
+                        for d, ns in st["MonthData"].items() if self._check_date(d)
                     }
                 }
                 for name, st in terminal_db.items()
             }
 
-        DataParser._logger.info("Reading and preprocessing data is finished.")
+        self._logger.info("Reading and preprocessing data is finished.")
         return EGMData(
             cc_list_full,
             consumption_production_assoc,

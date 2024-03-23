@@ -9,9 +9,13 @@ if __name__ == "__main__":
                         level=logging.DEBUG)
 
     def egm_test_1():
+        a = 12
+        parser = data_parser.DataParser(
+            datetime(2019, 1, 1), datetime(2019, a, 1)
+        )
         model = egm.EGRMinCostFlowModel(
-            data_parser.DataParser.get_data(),
-            [datetime(2019, i, 1) for i in range(1, 13)],
+            parser.get_data(),
+            [datetime(2019, i, 1) for i in range(1, a + 1)],
             big_m=1e8,
             eps=1e-2,
             lag=12,
@@ -21,3 +25,6 @@ if __name__ == "__main__":
         model.setup()
 
         solution = model.solve()
+
+
+egm_test_1()
