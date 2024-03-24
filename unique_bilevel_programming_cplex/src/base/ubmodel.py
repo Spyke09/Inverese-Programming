@@ -6,10 +6,11 @@ import docplex.mp.dvar
 import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
-
-from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
+from collections.abc import Iterable
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense, LPNan
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
+import numpy as np
 
 
 class UBModel:
@@ -33,6 +34,31 @@ class UBModel:
 
         self._logger = logging.getLogger("\tUBModel")
 
+        self._x: tp.Optional[tp.Dict[Var, docplex.mp.dvar.Var]] = None
+        self._std = None
+        self._cplex_m: tp.Optional[docplex.mp.model.Model] = None
+
+    def x_metric(self, metric):
+        x_0 = self._x_0
+        x = self._x
+        x_true = np.array([x_0[i] for i in self._model.vars if i in x and i in x_0])
+        x_pred = np.array([x[i].solution_value for i in self._model.vars if i in x and i in x_0])
+        return metric(x_true, x_pred)
+
+    def c_metric(self, metric):
+        c, c_0 = self._c, self._c_0
+        x = self._x
+        c_true = np.array([c_0[i] for i in c if c[i] in x and i in c_0])
+        c_pred = np.array([x[c[i]].solution_value for i in c if c[i] in x and i in c_0])
+        return metric(c_true, c_pred)
+
+    def b_metric(self, metric):
+        b, b_0 = self._b, self._b_0
+        x = self._x
+        b_true = np.array([b_0[i] for i in b if b[i] in x and i in b_0])
+        b_pred = np.array([x[b[i]].solution_value for i in b if b[i] in x and i in b_0])
+        return metric(b_true, b_pred)
+
     def init_c_as_var(self, *args) -> tp.Dict[Var, Var]:
         if len(args) == 0:
             self._c = {i: Var(f"c_{i.name}") for i in self._c}
@@ -45,19 +71,23 @@ class UBModel:
                 res[i] = self._c[i]
                 self._vars.add(self._c[i])
             return res
+        else:
+            raise ValueError
 
     def init_b_as_var(self, *args) -> tp.Dict[Constraint, Var]:
         if len(args) == 0:
             self._b = {i: Var(f"b_{i.name}") for i in self._b}
             self._vars.update(self._b.values())
             return self._b
-        elif len(args) == 1 and isinstance(args[0], (list, set)):
+        elif len(args) == 1 and isinstance(args[0], Iterable):
             res = dict()
             for i in args[0]:
                 self._b[i] = Var(f"b_{i.name}")
                 res[i] = self._b[i]
                 self._vars.add(self._b[i])
             return res
+        else:
+            raise ValueError
 
     def set_b0(self, constrs: tp.List[Constraint]) -> None:
         self._b_0 = dict()
@@ -87,7 +117,7 @@ class UBModel:
         else:
             raise TypeError
 
-    def add_constrs(self, constrs: tp.Iterable[Constraint]) -> None:
+    def add_constrs(self, constrs: tp.Iterable[tp.Union[Constraint, bool]]) -> None:
         for i in constrs:
             self.add_constr(i)
 
@@ -133,11 +163,14 @@ class UBModel:
                 self.add_constr(con.expr - self._b[con] <= big_m * (1 - lam[var]))
             elif con.sign == Sign.L_EQUAL:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
-        self._lam = list(lam.values())
 
-        self._logger.info("UB-Inv model initialization is finished.")
+        self._lam = lam.values()
 
-    def _init_cplex_model(self) -> tp.Tuple[docplex.mp.model.Model, tp.Dict[Var, docplex.mp.dvar.Var]]:
+        self._init_cplex_model()
+        self._logger.info(f"UB-Inv model initialization is finished. "
+                          f"Model with {len(self._vars)} vars, {len(self._constraints)} constraints.")
+
+    def _init_cplex_model(self) -> None:
         m = docplex.mp.model.Model(
             name=f'UniqueBilevelProgram'
         )
@@ -154,13 +187,14 @@ class UBModel:
             m.add_constraint(con.sign(m.sum(x[i] * con.expr.vars_coef[i] for i in con.vars), con.b_coef))
 
         c, c_0, b, b_0, x_0 = self._c, self._c_0, self._b, self._b_0, self._x_0
-        m.minimize(
-            m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"] +
-            m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"] +
-            m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
-        )
+        x_std = m.sum(m.abs(x[i] - x_0[i]) for i in self._model.vars if i in x and i in x_0) * self._obj_p["x"]
+        c_std = m.sum(m.abs(x[c[i]] - c_0[i]) for i in c if c[i] in x and i in c_0) * self._obj_p["c"]
+        b_std = m.sum(m.abs(x[b[i]] - b_0[i]) for i in b if b[i] in x and i in b_0) * self._obj_p["b"]
+        self._std = x_std + c_std + b_std
+        m.minimize(self._std)
 
-        return m, x
+        self._lam = m.sum(x[i] for i in self._lam)
+        self._x, self._cplex_m = x, m
 
     def set_obj_priority(self, name, p):
         if p >= 0:
@@ -180,33 +214,40 @@ class UBModel:
 
         return new_model
 
-    def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+    def solve(self, first_unique=False) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
-        m, x = self._init_cplex_model()
+        m, x = self._cplex_m, self._x
+
         lam_l = len(self._model.vars) - 1
         lam_u = len(self._model.constraints) + 1
+        # lam_u = lam_l + 2
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
-            self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}")
-            con = m.add_constraint(m.sum(x[i] for i in self._lam) == lam_m)
+            self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}.")
+            con = m.add_constraint(self._lam >= lam_m)
             m.solve()
 
             if m.solution is None:
-                self._logger.info("Solution is None")
+                self._logger.info("Solution is None.")
                 lam_u = lam_m
             else:
                 sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
                 if self._check_unique(sol):
-                    self._logger.info("Solution is unique")
+                    self._logger.info(f"Solution is unique. "
+                                      f"Error = {round(self._std.solution_value, 3)}. Sum lam is {round(self._lam, 3)}")
                     lam_u = lam_m
                     final_sol = sol
+                    if first_unique:
+                        break
                 else:
-                    self._logger.info("Solution is not unique")
+                    self._logger.info(f"Solution is not unique. Sum lam is {round(self._lam, 3)}")
                     lam_l = lam_m
+                    if final_sol is None:
+                        final_sol = sol
             m.remove_constraint(con)
 
-        self._logger.info("Finished to solve UB-Inv model")
+        self._logger.info("Finished to solve UB-Inv model.")
         return final_sol
 
     def _check_unique(self, solution):
@@ -231,10 +272,9 @@ class UBModel:
         }
         m.add_constraint(m.sum(x[i] * c[i] for i in self._model.obj.vars) == old_obj_v)
 
-        eps = self._eps * 10
+        eps = self._eps * 100
         m.add_constraint(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars) >= eps)
         # m.maximize(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars))
-        self._logger.info("Start checking unique")
 
         m.solve()
         return m.solution is None
