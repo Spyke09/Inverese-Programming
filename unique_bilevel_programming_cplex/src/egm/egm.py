@@ -19,11 +19,13 @@ class EGRMinCostFlowModel:
             self,
             price_lag=12,
             big_m=1e6,
-            eps=1e-3
+            eps=1e-3,
+            first_unique=False
     ):
         self._lag = price_lag
         self._big_m = big_m
         self._eps = eps
+        self._first_unique = first_unique
 
         self._model: Model = Model()
         self._ub_model = UBModel(self._model)
@@ -60,7 +62,7 @@ class EGRMinCostFlowModel:
         )
 
         self._ub_model.init()
-        self._solution = self._ub_model.solve()
+        self._solution = self._ub_model.solve(first_unique=self._first_unique)
 
     def write_results(self, path):
         res = {"x": dict(), "u": dict(), "c": {}}

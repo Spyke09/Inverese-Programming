@@ -214,7 +214,7 @@ class UBModel:
 
         return new_model
 
-    def solve(self) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+    def solve(self, first_unique=False) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._cplex_m, self._x
 
@@ -238,9 +238,13 @@ class UBModel:
                                       f"Error = {round(self._std.solution_value, 3)}. Sum lam is {round(self._lam, 3)}")
                     lam_u = lam_m
                     final_sol = sol
+                    if first_unique:
+                        break
                 else:
                     self._logger.info(f"Solution is not unique. Sum lam is {round(self._lam, 3)}")
                     lam_l = lam_m
+                    if final_sol is None:
+                        final_sol = sol
             m.remove_constraint(con)
 
         self._logger.info("Finished to solve UB-Inv model.")
