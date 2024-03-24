@@ -15,8 +15,8 @@ if __name__ == "__main__":
 
 
     def egm_test_1():
-        a = 12
-        b = 8
+        a = 2
+        b = 0
         dates = [datetime(2019, i, 1) for i in range(1, a + 1)]
         dates_test = dates[b + 1:]
         parser = data_parser.DataParser(dates)
@@ -31,7 +31,7 @@ if __name__ == "__main__":
                 big_m=1e8,
                 eps=1e-2,
                 price_lag=12,
-                first_unique=True
+                first_unique=False
             )
 
             model.fit(train_data, dates)

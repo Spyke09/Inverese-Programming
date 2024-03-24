@@ -186,7 +186,7 @@ class EGMDataTrainTestSplitter:
         prices_assoc = data.prices_assoc
 
         k_ = {"workingGasVolume", "injectionCapacity", "withdrawalCapacity"}
-        if mode == 1:
+        if mode == 0:
             storage_db_train = {
                 sto: {
                     "CC": da["CC"],
@@ -207,7 +207,7 @@ class EGMDataTrainTestSplitter:
                 }
                 for sto, da in data.terminal_db.items()
             }
-        elif mode == 2:
+        elif mode == 1:
             storage_db_train = data.storage_db
             terminal_db_train = data.terminal_db
         else:
