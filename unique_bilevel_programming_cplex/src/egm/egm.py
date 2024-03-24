@@ -50,13 +50,14 @@ class EGRMinCostFlowModel:
         self._solution = None
 
     def fit(self, train_data, dates):
-        self._logger.info("Starting the Min-cost-flow model initialization")
+        self._logger.info("Starting the EGM model initialization.")
         self._init_model(train_data, dates)
+
+        self._prepare_ub_model(train_data, dates)
         self._logger.info(
             f"Initialization is finished. "
-            f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints"
+            f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
-        self._prepare_ub_model(train_data, dates)
 
         self._ub_model.init()
         self._solution = self._ub_model.solve()
@@ -64,18 +65,18 @@ class EGRMinCostFlowModel:
     def write_results(self, path):
         res = {"x": dict(), "u": dict(), "c": {}}
         for x_i in self._model.vars:
-            res["x"][x_i] = self._solution[x_i]
+            res["x"][x_i.name] = self._solution[x_i]
+
+        for x_i in self._var_obj:
+            res["c"][x_i.name] = self._solution[Var(f"c_{x_i.name}")]
 
         for u in itertools.chain(self._known_ub + self._unknown_ub):
             assert len(u.vars) == 1
             var_ = list(u.vars)[0]
-            res["u"][var_] = self._solution[f"b_{u.name}"]
-
-        for x_i in self._model.vars:
-            res["c"][x_i] = self._solution[f"c_{x_i.name}"]
+            res["u"][var_.name] = self._solution[Var(f"b_{u.name}")]
 
         with open(path, "w") as f:
-            json.dump(res,f )
+            json.dump(res, f)
 
     def predict_x(self, x):
         return {x_i: self._solution[x_i] for x_i in x}
