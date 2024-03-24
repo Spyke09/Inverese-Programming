@@ -6,7 +6,7 @@ import docplex.mp.dvar
 import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
-
+from collections.abc import Iterable
 from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense, LPNan
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
@@ -75,7 +75,7 @@ class UBModel:
             self._b = {i: Var(f"b_{i.name}") for i in self._b}
             self._vars.update(self._b.values())
             return self._b
-        elif len(args) == 1 and isinstance(args[0], (list, set)):
+        elif len(args) == 1 and isinstance(args[0], Iterable):
             res = dict()
             for i in args[0]:
                 self._b[i] = Var(f"b_{i.name}")
@@ -209,13 +209,13 @@ class UBModel:
         self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._init_cplex_model()
         lam_l = len(self._model.vars) - 1
-        # lam_u = len(self._model.constraints) + 1
-        lam_u = lam_l + 2
+        lam_u = len(self._model.constraints) + 1
+        # lam_u = lam_l + 2
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
             self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}")
-            con = m.add_constraint(m.sum(x[i] for i in self._lam) == lam_m)
+            con = m.add_constraint(m.sum(x[i] for i in self._lam) >= lam_m)
             m.solve()
 
             if m.solution is None:
