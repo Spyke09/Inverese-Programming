@@ -4,6 +4,7 @@ from datetime import datetime
 import numpy as np
 
 from unique_bilevel_programming_cplex.src.egm import data_parser
+from unique_bilevel_programming_cplex.src.egm import data_spitter
 from unique_bilevel_programming_cplex.src.egm import egm
 from unique_bilevel_programming_cplex.src.base.common import is_lp_nan
 
@@ -15,8 +16,8 @@ if __name__ == "__main__":
 
 
     def egm_test_1():
-        a = 12
-        b = 8
+        a = 2
+        b = 0
         dates = [datetime(2019, i, 1) for i in range(1, a + 1)]
         dates_test = dates[b + 1:]
         parser = data_parser.DataParser(dates)
@@ -26,7 +27,7 @@ if __name__ == "__main__":
         for mode in range(2):
             logger.info(f"Mode {mode}.")
 
-            train_data, test_data = data_parser.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
+            train_data, test_data = data_spitter.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
             model = egm.EGRMinCostFlowModel(
                 big_m=1e8,
                 eps=1e-2,

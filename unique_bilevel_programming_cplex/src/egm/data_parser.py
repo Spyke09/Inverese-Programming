@@ -71,9 +71,9 @@ class DataParser:
                         DataParser._process_date(d): DataParser._process_num(c) for d, c in expo.items()
                         if self._check_date(d)
                     }
-                    for c2, expo in assoc.items() if "_" not in c2
+                    for c2, expo in assoc.items() if c2 in cc_list_full
                 }
-                for c1, assoc in export_assoc.items() if "_" not in c1
+                for c1, assoc in export_assoc.items() if c1 in cc_list_full
             }
         with open("data/graphDB.json", "r") as f:
             graph_db = json.load(f)

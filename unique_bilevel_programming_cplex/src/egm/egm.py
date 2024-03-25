@@ -192,7 +192,10 @@ class EGRMinCostFlowModel:
                         f_arc[d][tso_1, tso_2]
                         for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]
                     )
-                    m.add_constr(f_arc[d][f"export {c1}", c2].e - r_h == 0)
+                    if r_h != 0:
+                        m.add_constr(f_arc[d][f"export {c1}", c2].e - r_h == 0)
+                    else:
+                        f_arc[d].pop((f"export {c1}", c2))
 
         # естественные ограничения
         m.add_constrs(v.e >= 0 for v in m.vars)
@@ -358,7 +361,8 @@ class EGRMinCostFlowModel:
             for c1, out in data.export_assoc.items():
                 for c2 in out:
                     if not is_lp_nan(x0 := data.export_assoc[c1][c2][d]):
-                        x_0[self._f_arc[d][f"export {c1}", c2]] = x0
+                        if (f"export {c1}", c2) in self._f_arc[d]:
+                            x_0[self._f_arc[d][f"export {c1}", c2]] = x0
 
             for v1 in graph["prodVertexList"]:
                 v2 = v1.replace("prod ", "")
