@@ -1,3 +1,4 @@
 import os
+import pathlib
 
-os.chdir("../")
+os.chdir(pathlib.Path(__file__).parent.parent.resolve())
