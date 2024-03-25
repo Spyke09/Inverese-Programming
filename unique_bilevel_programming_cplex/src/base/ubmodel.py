@@ -163,6 +163,7 @@ class UBModel:
                 self.add_constr(con.expr - self._b[con] <= big_m * (1 - lam[var]))
             elif con.sign == Sign.L_EQUAL:
                 self.add_constr(self._b[con] - con.expr <= big_m * (1 - lam[var]))
+        self._lam = list(lam.values())
 
         self._lam = lam.values()
 
@@ -235,13 +236,13 @@ class UBModel:
                 sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
                 if self._check_unique(sol):
                     self._logger.info(f"Solution is unique. "
-                                      f"Error = {round(self._std.solution_value, 3)}. Sum lam is {round(self._lam, 3)}")
+                                      f"Error = {round(self._std.solution_value, 3)}. Sum lam is {round(self._lam.solution_value, 3)}")
                     lam_u = lam_m
                     final_sol = sol
                     if first_unique:
                         break
                 else:
-                    self._logger.info(f"Solution is not unique. Sum lam is {round(self._lam, 3)}")
+                    self._logger.info(f"Solution is not unique. Sum lam is {round(self._lam.solution_value, 3)}")
                     lam_l = lam_m
                     if final_sol is None:
                         final_sol = sol
@@ -275,6 +276,7 @@ class UBModel:
         eps = self._eps * 100
         m.add_constraint(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars) >= eps)
         # m.maximize(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars))
+        self._logger.info("Start checking unique")
 
         m.solve()
         return m.solution is None
