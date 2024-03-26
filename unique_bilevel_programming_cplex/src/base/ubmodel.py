@@ -218,47 +218,27 @@ class UBModel:
 
     def __perform_solve(self, time_for_optimum=None, gap=None):
         gap = 1e-3 if gap is None else gap
-        # find feasible solution
+        gap *= 100
+        solved_q = False
+        optim_time = None
         while True:
-            sol = self._cplex_m.solve()
-            status = self._cplex_m.solve_details.status_code
-            if sol is not None:
-                break
-            if status == 3:
-                return False, None
-
-        solution = {i: round(xi.solution_value, 7) for i, xi in self._x.items()}
-        unique_q = self._check_unique(solution)
-        if not unique_q:
-            return unique_q, solution
-
-        cur_gap = self._cplex_m.solve_details.mip_relative_gap
-        best_bound = self._cplex_m.solve_details.best_bound
-        obj = self._cplex_m.objective_expr.solution_value
-        self._logger.info(f"New solution has been found. Gap = {cur_gap:.3f}. Best bound = {best_bound:.3f}. Obj = {obj:.3f}")
-        optim_time = time.time()
-        while True:
-            if time_for_optimum is not None:
-                self._cplex_m.parameters.timelimit = max(0, time_for_optimum - time.time() + optim_time)
-            self._cplex_m.solve()
-            solution = {i: round(xi.solution_value, 7) for i, xi in self._x.items()}
-            unique_q = self._check_unique(solution)
-            if not unique_q:
-                break
-
-            cur_gap = self._cplex_m.solve_details.mip_relative_gap
-            best_bound = self._cplex_m.solve_details.best_bound
-            obj = self._cplex_m.objective_expr.solution_value
-            self._logger.info(f"New solution has been found. Gap = {cur_gap:.3f}. Best bound = {best_bound:.3f}. Obj = {obj:.3f}")
-            if cur_gap <= gap:
-                self._logger.info(f"Given gap is reached.")
-                break
-            elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
-                self._logger.info(f"The time for optimization has expired. Gap = {cur_gap:.3f}.")
-                break
+            if self._cplex_m.solve() is not None:
+                if time_for_optimum is not None:
+                    self._cplex_m.parameters.timelimit = time_for_optimum
+                cur_gap = self._cplex_m.solve_details.mip_relative_gap
+                cur_gap = min(1, cur_gap) * 100
+                self._logger.info(f"New solution. Gap = {cur_gap:.0f}%.")
+                if cur_gap <= gap:
+                    self._logger.info(f"Given gap is reached. Gap = {cur_gap:.0f}%.")
+                    break
+                if not solved_q:
+                    optim_time = time.time()
+                    solved_q = True
+                elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
+                    self._logger.info(f"The time for optimization has expired. Gap = {cur_gap:.0f}%.")
+                    break
 
         self._cplex_m.set_time_limit(3600)
-        return unique_q, solution
 
     def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
@@ -267,20 +247,20 @@ class UBModel:
 
         lam_l = len(self._model.vars) - 1
         lam_u = len(self._model.constraints) + 1
-        # lam_u = lam_l + 2
         final_sol = None
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
             self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}.")
             con = m.add_constraint(self._lam >= lam_m)
 
-            status, sol = self.__perform_solve(time_for_optimum, gap)
+            self.__perform_solve(time_for_optimum, gap)
 
-            if status is None:
+            if m.solution is None:
                 self._logger.info("Solution is None.")
                 lam_u = lam_m
             else:
-                if status:
+                sol = {i: round(xi.solution_value, 7) for i, xi in x.items()}
+                if self._check_unique(sol):
                     self._logger.info(f"Solution is unique. "
                                       f"Error = {self._std.solution_value:.3f}.")
                     lam_u = lam_m
@@ -298,9 +278,7 @@ class UBModel:
         return final_sol
 
     def _check_unique(self, solution):
-        m = docplex.mp.model.Model(
-            name=f'CheckUnique'
-        )
+        m = docplex.mp.model.Model(name=f'CheckUnique')
         x = dict()
         for i in self._model.vars:
             x[i] = m.continuous_var(name=i.name, lb=-m.infinity)
@@ -321,7 +299,6 @@ class UBModel:
 
         eps = self._eps * 100
         m.add_constraint(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars) >= eps)
-        # m.maximize(m.max(m.abs(x[i] - solution[i]) for i in self._model.vars))
 
         m.solve()
         return m.solution is None
