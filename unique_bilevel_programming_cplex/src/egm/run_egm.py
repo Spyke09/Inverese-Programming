@@ -31,9 +31,9 @@ if __name__ == "__main__":
                 big_m=1e8,
                 eps=1e-2,
                 price_lag=12,
-                first_unique=True,
+                first_unique=False,
                 gap=0.05,
-                time_for_optimum=300
+                time_for_optimum=100
             )
 
             model.fit(train_data, dates)

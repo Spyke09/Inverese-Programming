@@ -222,17 +222,21 @@ class UBModel:
         optim_time = None
         while True:
             if self._cplex_m.solve() is not None:
+                if time_for_optimum is not None:
+                    self._cplex_m.parameters.timelimit = time_for_optimum
                 cur_gap = self._cplex_m.solve_details.mip_relative_gap
+                self._logger.info(f"New solution has been found. Gap = {cur_gap}.")
                 if cur_gap <= gap:
                     self._logger.info(f"Given gap is reached. Gap = {cur_gap}.")
                     break
                 if not solved_q:
                     optim_time = time.time()
                     solved_q = True
-                    self._logger.info(f"Solution has been found. Gap = {cur_gap}.")
                 elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
                     self._logger.info(f"The time for optimization has expired. Gap = {cur_gap}.")
                     break
+
+        self._cplex_m.set_time_limit(3600)
 
     def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
