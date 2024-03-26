@@ -20,12 +20,16 @@ class EGRMinCostFlowModel:
             price_lag=12,
             big_m=1e6,
             eps=1e-3,
-            first_unique=False
+            first_unique=False,
+            time_for_optimum=None,
+            gap=1e-3
     ):
         self._lag = price_lag
         self._big_m = big_m
         self._eps = eps
         self._first_unique = first_unique
+        self._time_for_optimum = time_for_optimum
+        self._gap = gap
 
         self._model: Model = Model()
         self._ub_model = UBModel(self._model)
@@ -61,8 +65,14 @@ class EGRMinCostFlowModel:
             f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
 
+        self._ub_model.set_obj_priority("x", 0.1)
         self._ub_model.init()
-        self._solution = self._ub_model.solve(first_unique=self._first_unique)
+        self._solution = self._ub_model.solve(
+            first_unique=self._first_unique,
+            gap=self._gap,
+            time_for_optimum=self._time_for_optimum
+
+        )
 
     def write_results(self, path):
         res = {"x": dict(), "u": dict(), "c": {}}
@@ -192,7 +202,10 @@ class EGRMinCostFlowModel:
                         f_arc[d][tso_1, tso_2]
                         for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]
                     )
-                    m.add_constr(f_arc[d][f"export {c1}", c2].e - r_h == 0)
+                    if r_h != 0:
+                        m.add_constr(f_arc[d][f"export {c1}", c2].e - r_h == 0)
+                    else:
+                        f_arc[d].pop((f"export {c1}", c2))
 
         # естественные ограничения
         m.add_constrs(v.e >= 0 for v in m.vars)
@@ -358,7 +371,8 @@ class EGRMinCostFlowModel:
             for c1, out in data.export_assoc.items():
                 for c2 in out:
                     if not is_lp_nan(x0 := data.export_assoc[c1][c2][d]):
-                        x_0[self._f_arc[d][f"export {c1}", c2]] = x0
+                        if (f"export {c1}", c2) in self._f_arc[d]:
+                            x_0[self._f_arc[d][f"export {c1}", c2]] = x0
 
             for v1 in graph["prodVertexList"]:
                 v2 = v1.replace("prod ", "")

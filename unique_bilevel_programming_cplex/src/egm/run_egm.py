@@ -4,8 +4,8 @@ from datetime import datetime
 import numpy as np
 
 from unique_bilevel_programming_cplex.src.egm import data_parser
+from unique_bilevel_programming_cplex.src.egm import data_spitter
 from unique_bilevel_programming_cplex.src.egm import egm
-from unique_bilevel_programming_cplex.src.base.common import is_lp_nan
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(name)s: %(message)s', datefmt='%H:%M:%S',
@@ -23,15 +23,17 @@ if __name__ == "__main__":
 
         data = parser.get_data()
 
-        for mode in range(2):
+        for mode in range(1, 2):
             logger.info(f"Mode {mode}.")
 
-            train_data, test_data = data_parser.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
+            train_data, test_data = data_spitter.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
             model = egm.EGRMinCostFlowModel(
                 big_m=1e8,
                 eps=1e-2,
                 price_lag=12,
-                first_unique=False
+                first_unique=False,
+                gap=0.10,
+                # time_for_optimum=100
             )
 
             model.fit(train_data, dates)
