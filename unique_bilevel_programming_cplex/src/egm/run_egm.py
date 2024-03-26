@@ -6,7 +6,6 @@ import numpy as np
 from unique_bilevel_programming_cplex.src.egm import data_parser
 from unique_bilevel_programming_cplex.src.egm import data_spitter
 from unique_bilevel_programming_cplex.src.egm import egm
-from unique_bilevel_programming_cplex.src.base.common import is_lp_nan
 
 if __name__ == "__main__":
     logging.basicConfig(format='%(asctime)s %(name)s: %(message)s', datefmt='%H:%M:%S',

@@ -218,28 +218,21 @@ class UBModel:
 
     def __perform_solve(self, time_for_optimum=None, gap=None):
         gap = 1e-3 if gap is None else gap
-        if time_for_optimum is None:
-            while True:
-                if self._cplex_m.solve() is not None:
-                    cur_gap = self._cplex_m.solve_details.mip_relative_gap
-                    if cur_gap <= gap:
-                        self._logger.info(f"Given gap is reached. Gap = {cur_gap}")
-                        break
-        else:
-            solved_q = False
-            optim_time = None
-            while True:
-                if self._cplex_m.solve() is not None:
-                    cur_gap = self._cplex_m.solve_details.mip_relative_gap
-                    if cur_gap <= gap:
-                        self._logger.info(f"Given gap is reached. Gap = {cur_gap}.")
-                        break
-                    if not solved_q:
-                        optim_time = time.time()
-                    elif (time.time() - optim_time) > time_for_optimum:
-                        self._logger.info(f"The time for optimization has expired. Gap = {cur_gap}.")
-                        break
+        solved_q = False
+        optim_time = None
+        while True:
+            if self._cplex_m.solve() is not None:
+                cur_gap = self._cplex_m.solve_details.mip_relative_gap
+                if cur_gap <= gap:
+                    self._logger.info(f"Given gap is reached. Gap = {cur_gap}.")
+                    break
+                if not solved_q:
+                    optim_time = time.time()
                     solved_q = True
+                    self._logger.info(f"Solution has been found. Gap = {cur_gap}.")
+                elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
+                    self._logger.info(f"The time for optimization has expired. Gap = {cur_gap}.")
+                    break
 
     def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
