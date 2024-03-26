@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
         data = parser.get_data()
 
-        for mode in range(2):
+        for mode in range(1, 2):
             logger.info(f"Mode {mode}.")
 
             train_data, test_data = data_spitter.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
@@ -32,7 +32,9 @@ if __name__ == "__main__":
                 big_m=1e8,
                 eps=1e-2,
                 price_lag=12,
-                first_unique=True
+                first_unique=True,
+                gap=0.05,
+                time_for_optimum=300
             )
 
             model.fit(train_data, dates)

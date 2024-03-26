@@ -1,4 +1,5 @@
 import logging
+import time
 import typing as tp
 
 import docplex.mp
@@ -215,9 +216,35 @@ class UBModel:
 
         return new_model
 
-    def solve(self, first_unique=False) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+    def __perform_solve(self, time_for_optimum=None, gap=None):
+        gap = 1e-3 if gap is None else gap
+        if time_for_optimum is None:
+            while True:
+                if self._cplex_m.solve() is not None:
+                    cur_gap = self._cplex_m.solve_details.mip_relative_gap
+                    if cur_gap <= gap:
+                        self._logger.info(f"Given gap is reached. Gap = {cur_gap}")
+                        break
+        else:
+            solved_q = False
+            optim_time = None
+            while True:
+                if self._cplex_m.solve() is not None:
+                    cur_gap = self._cplex_m.solve_details.mip_relative_gap
+                    if cur_gap <= gap:
+                        self._logger.info(f"Given gap is reached. Gap = {cur_gap}.")
+                        break
+                    if not solved_q:
+                        optim_time = time.time()
+                    elif (time.time() - optim_time) > time_for_optimum:
+                        self._logger.info(f"The time for optimization has expired. Gap = {cur_gap}.")
+                        break
+                    solved_q = True
+
+    def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._cplex_m, self._x
+        m.parameters.mip.limits.solutions = 1
 
         lam_l = len(self._model.vars) - 1
         lam_u = len(self._model.constraints) + 1
@@ -227,7 +254,8 @@ class UBModel:
             lam_m = (lam_u + lam_l) // 2
             self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}.")
             con = m.add_constraint(self._lam >= lam_m)
-            m.solve()
+
+            self.__perform_solve(time_for_optimum, gap)
 
             if m.solution is None:
                 self._logger.info("Solution is None.")

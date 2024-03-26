@@ -20,12 +20,16 @@ class EGRMinCostFlowModel:
             price_lag=12,
             big_m=1e6,
             eps=1e-3,
-            first_unique=False
+            first_unique=False,
+            time_for_optimum=None,
+            gap=1e-3
     ):
         self._lag = price_lag
         self._big_m = big_m
         self._eps = eps
         self._first_unique = first_unique
+        self._time_for_optimum = time_for_optimum
+        self._gap = gap
 
         self._model: Model = Model()
         self._ub_model = UBModel(self._model)
@@ -61,8 +65,14 @@ class EGRMinCostFlowModel:
             f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
 
+        self._ub_model.set_obj_priority("x", 10)
         self._ub_model.init()
-        self._solution = self._ub_model.solve(first_unique=self._first_unique)
+        self._solution = self._ub_model.solve(
+            first_unique=self._first_unique,
+            gap=self._gap,
+            time_for_optimum=self._time_for_optimum
+
+        )
 
     def write_results(self, path):
         res = {"x": dict(), "u": dict(), "c": {}}
