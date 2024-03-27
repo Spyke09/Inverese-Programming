@@ -4,16 +4,15 @@ from datetime import datetime
 import networkx as nx
 
 import unique_bilevel_programming_cplex.src.egm.data_parser as data_parser
+from unique_bilevel_programming_cplex.src.base.common import is_lp_nan
 import matplotlib.pyplot as plt
-
+import numpy as np
 import os
 
 
-os.chdir("../")
-
 
 if __name__ == "__main__":
-    def visual(year, json_path, cc):
+    def visual(year, json_path, countries):
         dates = [datetime(year, i, 1) for i in range(1, 13)]
         parser = data_parser.DataParser(dates)
         data = parser.get_data()
@@ -26,64 +25,74 @@ if __name__ == "__main__":
             result_data = json.load(f)
             for edge_name, flow in result_data["x"].items():
                 if "flowMid" in edge_name:
-                    edge_name_split = edge_name.split("_")
-                    if len(edge_name_split) == 5:
-                        edge_name_split[3] = "_".join(edge_name_split[3:])
-                        edge_name_split.pop(4)
-                    elif len(edge_name_split) == 6 and (edge_name_split[2] == "export EX" or edge_name_split[2] == "export ASI"):
-                        edge_name_split[2] = "_".join(edge_name_split[2:-1])
-                        edge_name_split.pop(4)
-                        edge_name_split.pop(3)
-                    elif len(edge_name_split) == 7 and (edge_name_split[2] == "export EX" or edge_name_split[2] == "export ASI"):
-                        edge_name_split[2] = "_".join(edge_name_split[2:-1])
-                        edge_name_split.pop(4)
-                        edge_name_split.pop(3)
-                        edge_name_split[3] = "_".join(edge_name_split[3:])
-                        edge_name_split.pop(4)
-
-                    date = datetime.strptime(edge_name_split[1], "%Y-%m-%d %H:%M:%S")
-
-                    c_1, c_2 = edge_name_split[2:]
+                    _, date, c_1, c_2 = edge_name.split("_")
+                    date = datetime.strptime(date, "%Y-%m-%d %H:%M:%S")
                     c_1 = c_1.replace("export ", "")
                     cc_12 = c_1, c_2
-                    if c_1 in cc and c_2 in all_nodes:
-                        if date not in result:
-                            result[date] = dict()
-                        result[date][cc_12] = flow
-                        nodes.update(cc_12)
-                        edges.add(cc_12)
+                    if date not in result:
+                        result[date] = dict()
+                    result[date][cc_12] = flow
+                    nodes.update(cc_12)
+                    edges.add(cc_12)
 
-        for date in sorted(result.keys()):
-            flow = result[date]
-            graph = nx.DiGraph()
+        cc_list = list(countries)
+        for_plot_1_true = [
+            sum(c[d] for d in result for c in data.export_assoc[cc].values() if not is_lp_nan(c[d]))
+            for cc in cc_list
+        ] + [
+            sum(tt["MonthData"][d]["sendOut"] for d in result for tt in data.terminal_db.values())
+        ]
+        for_plot_1_pred = [
+            sum(result[d][cc, c] for d in result for c in nodes if (cc, c) in result[d])
+            for cc in cc_list
+        ] + [
+            sum(result[d][rd] for d in result for rd in result[d] if rd[0] in data.terminal_db)
+        ]
 
-            edge_labels = dict()
-            true_edge = set()
-            true_nodes = set()
-            for edge in edges:
-                a = round(flow[edge] / 1000, 2)
-                b = round(data.export_assoc[edge[0]][edge[1]][date] / 1000, 2)
-                if a > 0 or b > 0:
-                    true_edge.add(edge)
-                    true_nodes.update(edge)
-                    edge_labels[edge] = f"{a} <-> {b}"
+        print(for_plot_1_true[-1])
+        print(for_plot_1_pred[-1])
 
-            graph.add_nodes_from(true_nodes)
-            graph.add_edges_from(true_edge)
+        cc_list += ["СПГ"]
+        barWidth = 0.25
+        br1 = np.arange(len(cc_list))
+        br2 = [x + barWidth for x in br1]
+        plt.bar(br1, for_plot_1_true, width=barWidth, label="Данные")
+        plt.bar(br2, for_plot_1_pred, width=barWidth, label="Рассчет")
+        plt.xticks([r + barWidth for r in range(len(cc_list))], cc_list)
 
-            print(date)
+        for i, cc in enumerate(br1):
+            per = 200 * (for_plot_1_true[i] - for_plot_1_pred[i]) / (for_plot_1_true[i] + for_plot_1_pred[i])
+            plt.text(cc, barWidth + for_plot_1_pred[i], s=f'{per:.1f}%')
 
-            plt.figure()
-            nx.draw(
-                graph, pos=nx.circular_layout(graph), edge_color='black', width=1, linewidths=1,
-                node_size=500, node_color="pink", labels={node: node for node in graph.nodes()}
-            )
+        plt.legend()
+        plt.show()
 
-            nx.draw_networkx_edge_labels(
-                graph, nx.circular_layout(graph), edge_labels=edge_labels, font_color="red", font_size=8
-            )
+        dates = [i for i in dates if i in result]
+        for_plot_2_pred = {
+            cc: [
+                sum(result[d][cc, c] for c in nodes if (cc, c) in result[d])
+                for d in dates
+            ]
+            for cc in cc_list[:-1]
+        }
+        for_plot_2_true = {
+            cc: [
+                sum(c[d] for c in data.export_assoc[cc].values() if not is_lp_nan(c[d]))
+                for d in dates
+            ]
+            for cc in cc_list[:-1]
+        }
 
+        for cc_i in cc_list[:-1]:
+            month_pred = for_plot_2_pred[cc_i]
+            month_true = for_plot_2_true[cc_i]
+            plt.plot(dates, month_pred, label="Данные")
+            plt.plot(dates, month_true, label="Рассчет")
+
+            plt.legend()
             plt.show()
 
 
-    visual(2019, "out/res_2019_mode_1_6m.json", {"DZ", "RU", "NO"})
+
+
+    visual(2019, "out/res_2019_mode_1.json", {"DZ", "RU", "NO"})
