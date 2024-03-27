@@ -133,6 +133,7 @@ class EGRMinCostFlowModel:
         for c1, out in train_data.export_assoc.items():
             c1 = f"export {c1}"
             for c2 in out:
+                zero_costs.add((c1, c2))
                 arcs_fan_out[c1].add(c2)
                 arcs_fan_in[c2].add(c1)
 
@@ -202,8 +203,8 @@ class EGRMinCostFlowModel:
                         f_arc[d][tso_1, tso_2]
                         for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]
                     )
-                    if r_h != 0:
-                        m.add_constr(f_arc[d][f"export {c1}", c2].e - r_h == 0)
+                    if isinstance(r_h, LinExpr):
+                        m.add_constr(f_arc[d][f"export {c1}", c2] - r_h == 0)
                     else:
                         f_arc[d].pop((f"export {c1}", c2))
 
