@@ -30,14 +30,14 @@ if __name__ == "__main__":
             model = egm.EGRMinCostFlowModel(
                 big_m=1e8,
                 eps=1e-2,
-                price_lag=12,
-                first_unique=False,
-                gap=0.10,
+                price_lag=1,
+                first_unique=True,
+                gap=0.001,
                 # time_for_optimum=100
             )
 
             model.fit(train_data, dates)
-            model.write_results(f"res_2019_mode_{mode}.json")
+            model.write_results(f"out/res_2019_mode_{mode}.json")
 
             smape = (lambda x, y: 200 / x.shape[0] * np.sum(np.abs(x - y) / (0.1 + np.abs(x) + np.abs(y))))
 
