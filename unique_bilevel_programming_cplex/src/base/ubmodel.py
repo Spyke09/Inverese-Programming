@@ -237,6 +237,11 @@ class UBModel:
                 elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
                     self._logger.info(f"The time for optimization has expired. Gap = {cur_gap:.0f}%.")
                     break
+            a = self._cplex_m.solve_details.status
+            if self._cplex_m.solve_details.status == 'integer infeasible or unbounded':
+                break
+            if self._cplex_m.solve_details.status == 'integer infeasible':
+                break
 
         self._cplex_m.set_time_limit(3600)
 

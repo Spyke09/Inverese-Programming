@@ -13,7 +13,7 @@ b2_1 = inst_1.add_constr(x[2] + x[3] == 1)
 l_1 = inst_1.add_constrs(x[i].e >= 0 for i in range(4))
 u_1 = inst_1.add_constrs(x[i].e <= 1 for i in range(4))
 
-x0_1 = {x[i]: int(i % 2) for i in range(4)}
+x0_1 = {x[i]: float(i % 2) for i in range(4)}
 
 
 inst_2 = Model()
