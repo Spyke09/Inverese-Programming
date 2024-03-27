@@ -31,15 +31,16 @@ if __name__ == "__main__":
                 big_m=1e8,
                 eps=1e-2,
                 price_lag=12,
-                first_unique=False,
-                gap=0.10,
+                first_unique=True,
+                gap=0.01,
                 # time_for_optimum=100
+                init_c_mode=1
             )
 
             model.fit(train_data, dates)
             model.write_results(f"res_2019_mode_{mode}.json")
 
-            smape = (lambda x, y: 200 / x.shape[0] * np.sum(np.abs(x - y) / (0.1 + np.abs(x) + np.abs(y))))
+            smape = (lambda x, y: 200 / x.shape[0] * np.sum(np.abs(x - y) / (0.01 + np.abs(x) + np.abs(y))))
 
             x_true = model.get_x_0(test_data, dates_test)
             x_pred = model.predict_x(x_true.keys())
