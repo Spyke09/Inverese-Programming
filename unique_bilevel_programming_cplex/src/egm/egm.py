@@ -12,27 +12,29 @@ from unique_bilevel_programming_cplex.src.base.common import LPNan, is_lp_nan, S
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.ubmodel import UBModel
 from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
-
+from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData
 
 class EGRMinCostFlowModel:
     def __init__(
             self,
-            price_lag=12,
-            big_m=1e6,
-            eps=1e-3,
-            first_unique=False,
-            time_for_optimum=None,
-            gap=1e-3
+            price_lag: int = 12,
+            big_m: float = 1e6,
+            eps: float = 1e-3,
+            first_unique: bool = False,
+            time_for_optimum: int = None,
+            gap: float = 1e-3,
+            init_c_mode: int = 0
     ):
-        self._lag = price_lag
-        self._big_m = big_m
-        self._eps = eps
-        self._first_unique = first_unique
-        self._time_for_optimum = time_for_optimum
-        self._gap = gap
+        self._lag: int = price_lag
+        self._big_m: float = big_m
+        self._eps: float = eps
+        self._first_unique: bool = first_unique
+        self._time_for_optimum: int = time_for_optimum
+        self._gap: float = gap
+        self._init_c_mode: int = init_c_mode
 
         self._model: Model = Model()
-        self._ub_model = UBModel(self._model)
+        self._ub_model: UBModel = UBModel(self._model)
 
         _arc = tp.Tuple[str, str]
         self._f_t_pi: tp.Dict[str, Var] = dict()
@@ -53,9 +55,9 @@ class EGRMinCostFlowModel:
 
         self._logger = logging.getLogger("EGRMinCostFlowModel")
 
-        self._solution = None
+        self._solution: tp.Optional[tp.Dict[Var, LPFloat]] = None
 
-    def fit(self, train_data, dates):
+    def fit(self, train_data: EGMData, dates: tp.List[datetime]):
         self._logger.info("Starting the EGM model initialization.")
         self._init_model(train_data, dates)
 
@@ -65,7 +67,7 @@ class EGRMinCostFlowModel:
             f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
 
-        self._ub_model.set_obj_priority("x", 0.1)
+        self._ub_model.set_obj_priority("b", 0.01)
         self._ub_model.init()
         self._solution = self._ub_model.solve(
             first_unique=self._first_unique,
@@ -74,7 +76,7 @@ class EGRMinCostFlowModel:
 
         )
 
-    def write_results(self, path):
+    def write_results(self, path: str):
         res = {"x": dict(), "u": dict(), "c": {}}
         for x_i in self._model.vars:
             res["x"][x_i.name] = self._solution[x_i]
@@ -90,13 +92,13 @@ class EGRMinCostFlowModel:
         with open(path, "w") as f:
             json.dump(res, f)
 
-    def predict_x(self, x):
+    def predict_x(self, x: tp.Iterable[Var]):
         return {x_i: self._solution[x_i] for x_i in x}
 
-    def predict_b(self, cons):
+    def predict_b(self, cons: tp.Iterable[Constraint]):
         return {con: self._solution[Var(f"b_{con.name}")] for con in cons}
 
-    def _init_model(self, train_data, dates):
+    def _init_model(self, train_data: EGMData, dates: tp.List[datetime]):
         graph = train_data.graph_db
         m = self._model = Model()
 
@@ -220,7 +222,7 @@ class EGRMinCostFlowModel:
             Sense.MIN
         )
 
-    def _prepare_ub_model(self, train_data, dates):
+    def _prepare_ub_model(self, train_data: EGMData, dates: tp.List[datetime]):
         ub_m = self._ub_model = UBModel(self._model, big_m=self._big_m, eps=self._eps)
         ub_m.set_x0(self.get_x_0(train_data, dates))
 
@@ -237,32 +239,50 @@ class EGRMinCostFlowModel:
             con_1 = cons[0]
             ub_m.add_constrs(b[con_i] - b[con_1] == 0 for con_i in cons[1:])
 
-    def _init_c(self, data, dates):
-        c = self._ub_model.init_c_as_var(self._var_obj)
-        self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
+    def __make_prices_cons(
+            self,
+            c: tp.Dict[Var, Var],
+            vertex_or_arc: tp.Iterable[tp.Union[str, tp.Tuple[str, str]]],
+            dates: tp.List[datetime],
+            vars_: tp.Dict[datetime, tp.Dict[tp.Union[str, tp.Tuple[str, str]], Var]],
+            pa: tp.Dict[str, tp.Dict[datetime, LPFloat]]
+    ):
+        delta = relativedelta.relativedelta(months=1)
+        pa_t, pa_c = pa["TTFG1MON Index"], pa["CO1 Comdty"]
+        for v in vertex_or_arc:
+            alpha = {lag: Var(f"alpha_({v})_{lag}") for lag in range(1, self._lag + 1)}
+            beta = {lag: Var(f"beta_({v})_{lag}") for lag in range(1, self._lag + 1)}
+            for d in dates:
+                w_sum = sum(
+                    alpha[la] * pa_t[d - delta * la] + beta[la] * pa_c[d - delta * la]
+                    for la in range(1, self._lag + 1)
+                )
+                con = c[vars_[d][v]].e == w_sum
+                self._ub_model.add_constr(con)
 
-        _pa = data.prices_assoc
-        pa_t, pa_c = _pa["TTFG1MON Index"], _pa["CO1 Comdty"]
+    def _init_c(self, data: EGMData, dates: tp.List[datetime]) -> None:
+        c: tp.Dict[Var, Var] = self._ub_model.init_c_as_var(self._var_obj)
+        self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
+        c_mode = {
+            0: self._init_c_mode_0,
+            1: self._init_c_mode_1,
+            2: self._init_c_mode_2
+        }[self._init_c_mode]
+
+        c_mode(**{"c": c, "data": data, "dates": dates})
+
+    def _init_c_mode_1(self, c: tp.Dict[Var, Var], data: EGMData, dates: tp.List[datetime]):
+        pa = data.prices_assoc
+        pa_t, pa_c = pa["TTFG1MON Index"], pa["CO1 Comdty"]
         graph = data.graph_db
 
         delta = relativedelta.relativedelta(months=1)
 
-        def make_one(vertex_or_arc_, dates_, vars_):
-            for v_ in vertex_or_arc_:
-                alpha_ = {lag: Var(f"alpha_({v_})_{lag}") for lag in range(1, self._lag + 1)}
-                beta_ = {lag: Var(f"beta_({v_})_{lag}") for lag in range(1, self._lag + 1)}
-                for d_ in dates_:
-                    w_sum_ = sum(
-                        alpha_[la] * pa_t[d_ - delta * la] + beta_[la] * pa_c[d_ - delta * la]
-                        for la in range(1, self._lag + 1)
-                    )
-                    self._ub_model.add_constr(c[vars_[d_][v_]].e == w_sum_)
-
-        make_one(graph["storList"], itertools.chain((dates[0] - delta,), dates), self._f_ugs)
-
+        dates_ugs = [dates[0] - delta] + dates
+        self.__make_prices_cons(c, graph["storList"], dates_ugs, self._f_ugs, pa)
         arcs = self._non_zero_costs
         usual_arcs = set(i for i in arcs if not (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
-        make_one(usual_arcs, dates, self._f_arc)
+        self.__make_prices_cons(c, usual_arcs, dates, self._f_arc, pa)
 
         tso_arcs = arcs.difference(usual_arcs)
         tso_groups = dict()
@@ -284,8 +304,56 @@ class EGRMinCostFlowModel:
                     )
                     self._ub_model.add_constr(w_sum == c[self._f_arc[d][arc]])
 
-    def _get_upper_bound_constrs(self, train_data, dates) -> tp.Tuple[
-        tp.List[Constraint],tp.List[Constraint], tp.Dict[str, tp.List[Constraint]]
+    def _init_c_mode_0(self, c: tp.Dict[Var, Var], data: EGMData, dates: tp.List[datetime]):
+        pa = data.prices_assoc
+        graph = data.graph_db
+
+        delta = relativedelta.relativedelta(months=1)
+
+        dates_ugs = [dates[0] - delta] + dates
+        self.__make_prices_cons(c, graph["storList"], dates_ugs, self._f_ugs, pa)
+        arcs = self._non_zero_costs
+        usual_arcs = set(i for i in arcs if not (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
+        self.__make_prices_cons(c, usual_arcs, dates, self._f_arc, pa)
+        tso_arcs = set(i for i in arcs if (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
+        self.__make_prices_cons(c, tso_arcs, dates, self._f_arc, pa)
+
+    def _init_c_mode_2(self, c: tp.Dict[Var, Var], data: EGMData, dates: tp.List[datetime]):
+        pa = data.prices_assoc
+        pa_t, pa_c = pa["TTFG1MON Index"], pa["CO1 Comdty"]
+        graph = data.graph_db
+
+        delta = relativedelta.relativedelta(months=1)
+
+        dates_ugs = [dates[0] - delta] + dates
+        self.__make_prices_cons(c, graph["storList"], dates_ugs, self._f_ugs, pa)
+        arcs = self._non_zero_costs
+        usual_arcs = set(i for i in arcs if not (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
+        self.__make_prices_cons(c, usual_arcs, dates, self._f_arc, pa)
+
+        tso_arcs = arcs.difference(usual_arcs)
+        tso_groups = dict()
+        for v, w in tso_arcs:
+            cv = graph["vertexCountryAssoc"][v]
+            cw = graph["vertexCountryAssoc"][w]
+            if (cv, cw) not in tso_groups:
+                tso_groups[cv, cw] = set()
+            tso_groups[cv, cw].add((v, w))
+
+        g_alpha = [{lag: Var(f'alpha_({"same CC" if i else "between CC"})_{lag}') for lag in range(1, self._lag + 1)} for i in range(2)]
+        g_beta = [{lag: Var(f'beta_({"same CC" if i else "between CC"})_{lag}') for lag in range(1, self._lag + 1)} for i in range(2)]
+        for cc, group in tso_groups.items():
+            q = (cc[0] == cc[1])
+            for arc in group:
+                for d in dates:
+                    w_sum = sum(
+                        g_alpha[q][la] * pa_t[d - delta * la] + g_beta[q][la] * pa_c[d - delta * la]
+                        for la in range(1, self._lag + 1)
+                    )
+                    self._ub_model.add_constr(w_sum == c[self._f_arc[d][arc]])
+
+    def _get_upper_bound_constrs(self, train_data: EGMData, dates: tp.List[datetime]) -> tp.Tuple[
+        tp.List[Constraint], tp.List[Constraint], tp.Dict[str, tp.List[Constraint]]
     ]:
         graph = train_data.graph_db
 
@@ -342,7 +410,7 @@ class EGRMinCostFlowModel:
 
         return known_ub, unknown_ub, pi_ub
 
-    def get_x_0(self, data, dates):
+    def get_x_0(self, data: EGMData, dates: tp.List[datetime]):
         graph = data.graph_db
 
         x_0 = dict()
@@ -379,12 +447,6 @@ class EGRMinCostFlowModel:
                 v2 = v1.replace("prod ", "")
                 if not is_lp_nan(x0 := data.cp_assoc["production"][v2][d]):
                     x_0[self._f_arc[d][v1, f"{v1} sos"]] = x0
-
-            # consumption is const
-            # for v2 in graph["consumVertexList"]:
-            #     v1 = v2.replace("consum ", "")
-            #     if not is_lp_nan(x0 := data.cp_assoc["consumption"][v1][d]):
-            #         x_0[self._f_arc[d][f"{v2} sos", v2]] = x0
 
         for d in exp_dates:
             for v in graph["storList"]:
