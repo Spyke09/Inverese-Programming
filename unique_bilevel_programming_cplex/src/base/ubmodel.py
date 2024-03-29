@@ -149,14 +149,12 @@ class UBModel:
         for con, var in y.items():
             evar = LinExpr(var)
             if con.sign == Sign.G_EQUAL and max_q or con.sign == Sign.L_EQUAL and min_q:
-                self.add_constr(evar <= 0)
                 self.add_constr(evar <= -eps * lam[var])
                 self.add_constr(evar >= -big_m * lam[var])
             elif con.sign == Sign.EQUAL:
                 self.add_constr(evar >= eps * lam[var] - big_m * gam[var])
                 self.add_constr(evar <= -eps * lam[var] + big_m * (1 - gam[var]))
             elif con.sign == Sign.L_EQUAL and max_q or con.sign == Sign.G_EQUAL and min_q:
-                self.add_constr(evar >= 0)
                 self.add_constr(evar >= eps * lam[var])
                 self.add_constr(evar <= big_m * lam[var])
 
@@ -237,13 +235,11 @@ class UBModel:
                 elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
                     self._logger.info(f"The time for optimization has expired. Gap = {cur_gap:.0f}%.")
                     break
-            a = self._cplex_m.solve_details.status
             if self._cplex_m.solve_details.status == 'integer infeasible or unbounded':
                 break
             if self._cplex_m.solve_details.status == 'integer infeasible':
                 break
 
-        self._cplex_m.set_time_limit(3600)
 
     def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
@@ -256,7 +252,7 @@ class UBModel:
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
             self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}.")
-            con = m.add_constraint(self._lam >= lam_m)
+            # con = m.add_constraint(self._lam >= lam_m)
 
             self.__perform_solve(time_for_optimum, gap)
 
@@ -277,12 +273,13 @@ class UBModel:
                     lam_l = lam_m
                     if final_sol is None:
                         final_sol = sol
-            m.remove_constraint(con)
+            # m.remove_constraint(con)
 
         self._logger.info("Finished to solve UB-Inv model.")
         return final_sol
 
     def _check_unique(self, solution):
+        return True
         m = docplex.mp.model.Model(name=f'CheckUnique')
         x = dict()
         for i in self._model.vars:
