@@ -17,32 +17,33 @@ if __name__ == "__main__":
     def egm_test_1():
         a = 2
         b = 0
-        dates = [datetime(2019, i, 1) for i in range(1, a + 1)]
+        year = 2019
+        dates = [datetime(year, i, 1) for i in range(1, a + 1)]
         dates_test = dates[b + 1:]
         parser = data_parser.DataParser(dates)
 
         data = parser.get_data()
 
-        for mode in range(1, 2):
+        for mode in range(0, 1):
             logger.info(f"Mode {mode}.")
 
-            train_data, test_data = data_spitter.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
+            # train_data, test_data = data_spitter.EGMDataTrainTestSplitter.split(data, dates[b], mode=mode)
             model = egm.EGRMinCostFlowModel(
                 big_m=1e8,
-                eps=1e-2,
+                eps=1e-1,
                 price_lag=12,
                 first_unique=True,
-                gap=0.01,
+                gap=0.08,
                 # time_for_optimum=100
                 init_c_mode=1
             )
 
-            model.fit(train_data, dates)
-            model.write_results(f"res_2019_mode_{mode}.json")
+            model.fit(data, dates)
+            model.write_results(f"out/res_{year}_mode_{mode}_{a}m.json")
 
             smape = (lambda x, y: 200 / x.shape[0] * np.sum(np.abs(x - y) / (0.01 + np.abs(x) + np.abs(y))))
 
-            x_true = model.get_x_0(test_data, dates_test)
+            x_true = model.get_x_0(data, dates_test)
             x_pred = model.predict_x(x_true.keys())
 
             x_true_np = np.array([x_true[i] for i in x_true.keys()])

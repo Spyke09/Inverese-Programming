@@ -60,7 +60,7 @@ class EGMDataTrainTestSplitter:
                 sto: {
                     "CC": da["CC"],
                     "MonthData": {
-                        d: {k: (p if date_train_q or k in k_ else LPNan) for k, p in g.items()}
+                        d: {k: (p if date_train_q(d) or k in k_ else LPNan) for k, p in g.items()}
                         for d, g in da["MonthData"].items()
                     }
                 }
@@ -70,7 +70,7 @@ class EGMDataTrainTestSplitter:
                 sto: {
                     "CC": da["CC"],
                     "MonthData": {
-                        d: {k: (p if date_train_q or k == "dtrs" else LPNan) for k, p in g.items()}
+                        d: {k: (p if date_train_q(d) or k == "dtrs" else LPNan) for k, p in g.items()}
                         for d, g in da["MonthData"].items()
                     }
                 }

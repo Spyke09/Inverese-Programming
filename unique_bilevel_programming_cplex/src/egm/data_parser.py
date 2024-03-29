@@ -31,7 +31,7 @@ class DataParser:
         self._date_to_d = self._dates[-1] + self._delta
 
     @staticmethod
-    def _process_num(num, c=1e4, c_ns=1e1):
+    def _process_num(num, c=1e4, c_ns=1e0):
         return LPNan if num == "Missing" else LPFloat(num) * c * c_ns
 
     @staticmethod
@@ -107,10 +107,6 @@ class DataParser:
             storage_db = {
                 name: {
                     "CC": st["CC"],
-                    "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["DayData"].items()
-                    },
                     "MonthData": {
                         DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
                         for d, ns in st["MonthData"].items() if self._check_date(d, True)
@@ -123,10 +119,6 @@ class DataParser:
             terminal_db = {
                 name: {
                     "CC": st["CC"],
-                    "DayData": {
-                        DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
-                        for d, ns in st["DayData"].items()
-                    },
                     "MonthData": {
                         DataParser._process_date(d): {c: DataParser._process_num(n, c_ns=c_ns) for c, n in ns.items()}
                         for d, ns in st["MonthData"].items() if self._check_date(d)

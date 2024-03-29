@@ -14,6 +14,7 @@ from unique_bilevel_programming_cplex.src.base.ubmodel import UBModel
 from unique_bilevel_programming_cplex.src.base.var_expr_con import Var, LinExpr, Constraint
 from unique_bilevel_programming_cplex.src.egm.data_parser import EGMData
 
+
 class EGRMinCostFlowModel:
     def __init__(
             self,
@@ -132,17 +133,21 @@ class EGRMinCostFlowModel:
                 arcs_fan_out[v].add(w)
                 arcs_fan_in[w].add(v)
 
-        for c1, out in train_data.export_assoc.items():
-            c1 = f"export {c1}"
-            for c2 in out:
-                zero_costs.add((c1, c2))
-                arcs_fan_out[c1].add(c2)
-                arcs_fan_in[c2].add(c1)
-
         cc_tso = defaultdict(set)
         for v, cc in graph["vertexCountryAssoc"].items():
             if v in graph["tsoList"]:
                 cc_tso[cc].add(v)
+
+        for c1, out in train_data.export_assoc.items():
+            if c1 in cc_tso:
+                for c2 in out:
+                    if c2 in cc_tso:
+                        if sum(1 for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]) > 0:
+                            c1_exp = f"{c1} sosExport"
+                            c2_exp = f"{c2} sosGetExport"
+                            zero_costs.add((c1_exp, c2_exp))
+                            arcs_fan_out[c1_exp].add(c2_exp)
+                            arcs_fan_in[c2_exp].add(c1_exp)
 
         vertex_out = graph["consumVertexList"]
         pac = train_data.cp_assoc["consumption"]
@@ -180,10 +185,6 @@ class EGRMinCostFlowModel:
             m.add_constr(sum(f_pi_prod[d][v] for d in dates) - f_t_pi[v] == 0)
             for d in dates:
                 m.add_constr(sum(f_arc[d][v, w] for w in arcs_fan_out[v]) - f_pi_prod[d][v] == 0)
-        for v in graph["lngList"]:
-            m.add_constr(sum(f_pi_prod[d][v] for d in dates) - f_t_pi[v] == 0)
-            for d in dates:
-                m.add_constr(sum(f_arc[d][v, w] for w in arcs_fan_out[v]) - f_pi_prod[d][v] == 0)
         for v in vertex_out:
             m.add_constr(sum(f_cons_c[d][v] for d in dates) - f_c_d[v] == 0)
             for d in dates:
@@ -201,14 +202,13 @@ class EGRMinCostFlowModel:
         for d in dates:
             for c1, out in train_data.export_assoc.items():
                 for c2 in out:
-                    r_h = sum(
-                        f_arc[d][tso_1, tso_2]
-                        for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]
-                    )
-                    if isinstance(r_h, LinExpr):
-                        m.add_constr(f_arc[d][f"export {c1}", c2] - r_h == 0)
-                    else:
-                        f_arc[d].pop((f"export {c1}", c2))
+                    edge = (f"{c1} sosExport", f"{c2} sosGetExport")
+                    if edge in f_arc[d]:
+                        r_h = sum(
+                            f_arc[d][tso_1, tso_2]
+                            for tso_1 in cc_tso[c1] for tso_2 in cc_tso[c2] if tso_2 in arcs_fan_out[tso_1]
+                        )
+                        m.add_constr(f_arc[d][edge] - r_h == 0)
 
         # естественные ограничения
         m.add_constrs(v.e >= 0 for v in m.vars)
@@ -263,6 +263,7 @@ class EGRMinCostFlowModel:
     def _init_c(self, data: EGMData, dates: tp.List[datetime]) -> None:
         c: tp.Dict[Var, Var] = self._ub_model.init_c_as_var(self._var_obj)
         self._ub_model.add_constrs(ci.e >= 0 for ci in c.values())
+        self._ub_model.add_constrs(ci.e <= 1000 for ci in c.values())
         c_mode = {
             0: self._init_c_mode_0,
             1: self._init_c_mode_1,
@@ -372,7 +373,7 @@ class EGRMinCostFlowModel:
 
         # супер-вершина -> pi
         for v in vertex_in:
-            unknown_ub.append(self._f_t_pi[v].e <= np.nan)
+            unknown_ub.append(self._f_t_pi[v].e <= LPNan)
 
         for d in dates:
             # {страна экспортер, страна производитель, пхг} :> {tso, ugs}
@@ -384,17 +385,18 @@ class EGRMinCostFlowModel:
                 for v2 in fanout:
                     edge = v1, v2
                     cap = LPNan
-                    if v1 in sos_lng and v2 in graph["tsoList"]:
+                    if v1 in sos_lng and v2 in graph["tsoList"] and d in graph["arcCapTimeAssoc"]:
                         cap = graph["arcCapTimeAssoc"][d][sos_lng[v1], v2]
-                    if v1 in graph["lngList"] and v2 in sos_lng:
+                    if v1 in graph["lngList"] and v2 in sos_lng and d in train_data.terminal_db[v1]["MonthData"]:
                         cap = train_data.terminal_db[v1]["MonthData"][d]["dtrs"]
-                    if v1 in graph["tsoList"] and v2 in graph["tsoList"]:
+                    if v1 in graph["tsoList"] and v2 in graph["tsoList"] and d in graph["arcCapTimeAssoc"]:
                         cap = graph["arcCapTimeAssoc"][d][edge]
-                    if v1 in sos_stor_in and v2 in graph["storList"]:
+                    if v1 in sos_stor_in and v2 in graph["storList"] and d in train_data.storage_db[v2]["MonthData"]:
                         cap = train_data.storage_db[v2]["MonthData"][d]["injectionCapacity"]
-                    if v1 in graph["storList"] and v2 in sos_stor_out:
+                    if v1 in graph["storList"] and v2 in sos_stor_out and d in train_data.storage_db[v1]["MonthData"]:
                         cap = train_data.storage_db[v1]["MonthData"][d]["withdrawalCapacity"]
-                    (unknown_ub if is_lp_nan(cap) else known_ub).append(self._f_arc[d][edge].e <= cap)
+                    if "sosGetExport" not in v2 and "sosExport" not in v1:
+                        (unknown_ub if is_lp_nan(cap) else known_ub).append(self._f_arc[d][edge].e <= cap)
 
             for v in graph["consumVertexList"]:
                 if isinstance(self._f_cons_c[d][v], Var):
@@ -405,8 +407,9 @@ class EGRMinCostFlowModel:
 
         for d in exp_dates[:-1]:
             for v in graph["storList"]:
-                cap = train_data.storage_db[v]["MonthData"][d]["workingGasVolume"]
-                (unknown_ub if is_lp_nan(cap) else known_ub).append(self._f_ugs[d][v].e <= cap)
+                if d in train_data.storage_db[v]["MonthData"]:
+                    cap = train_data.storage_db[v]["MonthData"][d]["workingGasVolume"]
+                    (unknown_ub if is_lp_nan(cap) else known_ub).append(self._f_ugs[d][v].e <= cap)
 
         return known_ub, unknown_ub, pi_ub
 
@@ -428,30 +431,36 @@ class EGRMinCostFlowModel:
                 for v2 in fanout:
                     edge = v1, v2
                     if v1 in graph["lngList"] and v2 in sos_lng:
-                        if not is_lp_nan(x0 := data.terminal_db[v1]["MonthData"][d]["sendOut"]):
-                            x_0[self._f_arc[d][edge]] = x0
+                        if d in data.terminal_db[v1]["MonthData"]:
+                            if not is_lp_nan(x0 := data.terminal_db[v1]["MonthData"][d]["sendOut"]):
+                                x_0[self._f_arc[d][edge]] = x0
                     if v1 in sos_stor_in and v2 in graph["storList"]:
-                        if not is_lp_nan(x0 := data.storage_db[v2]["MonthData"][d]["injection"]):
-                            x_0[self._f_arc[d][edge]] = x0
+                        if d in data.storage_db[v2]["MonthData"]:
+                            if not is_lp_nan(x0 := data.storage_db[v2]["MonthData"][d]["injection"]):
+                                x_0[self._f_arc[d][edge]] = x0
                     if v1 in graph["storList"] and v2 in sos_stor_out:
-                        if not is_lp_nan(x0 := data.storage_db[v1]["MonthData"][d]["withdrawal"]):
-                            x_0[self._f_arc[d][edge]] = x0
+                        if d in data.storage_db[v1]["MonthData"]:
+                            if not is_lp_nan(x0 := data.storage_db[v1]["MonthData"][d]["withdrawal"]):
+                                x_0[self._f_arc[d][edge]] = x0
 
             for c1, out in data.export_assoc.items():
                 for c2 in out:
-                    if not is_lp_nan(x0 := data.export_assoc[c1][c2][d]):
-                        if (f"export {c1}", c2) in self._f_arc[d]:
-                            x_0[self._f_arc[d][f"export {c1}", c2]] = x0
+                    edge = (f"{c1} sosExport", f"{c2} sosGetExport")
+                    if edge in self._f_arc[d]:
+                        if not is_lp_nan(x0 := data.export_assoc[c1][c2][d]):
+                            x_0[self._f_arc[d][edge]] = x0
 
             for v1 in graph["prodVertexList"]:
                 v2 = v1.replace("prod ", "")
-                if not is_lp_nan(x0 := data.cp_assoc["production"][v2][d]):
-                    x_0[self._f_arc[d][v1, f"{v1} sos"]] = x0
+                if d in data.cp_assoc["production"][v2]:
+                    if not is_lp_nan(x0 := data.cp_assoc["production"][v2][d]):
+                        x_0[self._f_arc[d][v1, f"{v1} sos"]] = x0
 
         for d in exp_dates:
             for v in graph["storList"]:
-                if not is_lp_nan(x0 := data.storage_db[v]["MonthData"][d]["gasInStorage"]):
-                    x_0[self._f_ugs[d][v]] = x0
+                if d in data.storage_db[v]["MonthData"]:
+                    if not is_lp_nan(x0 := data.storage_db[v]["MonthData"][d]["gasInStorage"]):
+                        x_0[self._f_ugs[d][v]] = x0
 
         return x_0
 
