@@ -22,7 +22,6 @@ class EGRMinCostFlowModel:
             big_m: float = 1e6,
             eps: float = 1e-3,
             first_unique: bool = False,
-            time_for_optimum: int = None,
             gap: float = 1e-3,
             init_c_mode: int = 0
     ):
@@ -30,7 +29,6 @@ class EGRMinCostFlowModel:
         self._big_m: float = big_m
         self._eps: float = eps
         self._first_unique: bool = first_unique
-        self._time_for_optimum: int = time_for_optimum
         self._gap: float = gap
         self._init_c_mode: int = init_c_mode
 
@@ -68,13 +66,10 @@ class EGRMinCostFlowModel:
             f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
 
-        # self._ub_model.set_obj_priority("b", 0.01)
         self._ub_model.init()
         self._solution = self._ub_model.solve(
             first_unique=self._first_unique,
-            gap=self._gap,
-            time_for_optimum=self._time_for_optimum
-
+            gap=self._gap
         )
 
     def write_results(self, path: str):
@@ -315,9 +310,7 @@ class EGRMinCostFlowModel:
         self.__make_prices_cons(c, graph["storList"], dates_ugs, self._f_ugs, pa)
         arcs = self._non_zero_costs
         usual_arcs = set(i for i in arcs if not (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
-        self.__make_prices_cons(c, usual_arcs, dates, self._f_arc, pa)
-        tso_arcs = set(i for i in arcs if (i[0] in graph["tsoList"] and i[1] in graph["tsoList"]))
-        self.__make_prices_cons(c, tso_arcs, dates, self._f_arc, pa)
+        self.__make_prices_cons(c, arcs, dates, self._f_arc, pa)
 
     def _init_c_mode_2(self, c: tp.Dict[Var, Var], data: EGMData, dates: tp.List[datetime]):
         pa = data.prices_assoc

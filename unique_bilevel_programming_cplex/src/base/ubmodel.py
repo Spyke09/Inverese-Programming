@@ -1,17 +1,17 @@
 import logging
-import time
 import typing as tp
+from collections.abc import Iterable
 
 import docplex.mp
 import docplex.mp.dvar
 import docplex.mp.linear
 import docplex.mp.model
 import docplex.mp.vartype
-from collections.abc import Iterable
-from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense, LPNan
+import numpy as np
+
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
-import numpy as np
 
 
 class UBModel:
@@ -142,9 +142,12 @@ class UBModel:
             self.add_constr(expr == c)
 
         lam = {i: Var(f"lam_{i.name}", VarType.BIN) for i in y.values()}
-        gam = {i: Var(f"gam_{i.name}", VarType.BIN) for j, i in y.items() if j.sign == Sign.EQUAL}
+        # gam = {i: Var(f"gam_{i.name}", VarType.BIN) for j, i in y.items() if j.sign == Sign.EQUAL}
+        y_plus = {i: Var(f"y_plus_{i.name}") for j, i in y.items() if j.sign == Sign.EQUAL}
+        y_minus = {i: Var(f"y_minus_{i.name}") for j, i in y.items() if j.sign == Sign.EQUAL}
         self._vars.update(lam.values())
-        self._vars.update(gam.values())
+        self._vars.update(y_plus.values())
+        self._vars.update(y_minus.values())
         max_q, min_q = self._model.sense == Sense.MAX, self._model.sense == Sense.MIN
         for con, var in y.items():
             evar = LinExpr(var)
@@ -152,8 +155,11 @@ class UBModel:
                 self.add_constr(evar <= -eps * lam[var])
                 self.add_constr(evar >= -big_m * lam[var])
             elif con.sign == Sign.EQUAL:
-                self.add_constr(evar >= eps * lam[var] - big_m * gam[var])
-                self.add_constr(evar <= -eps * lam[var] + big_m * (1 - gam[var]))
+                self.add_constr(evar == y_plus[var] - y_minus[var])
+                self.add_constr(y_plus[var].e >= 0)
+                self.add_constr(y_minus[var].e >= 0)
+                self.add_constr(y_plus[var] + y_minus[var] >= eps * lam[var])
+                self.add_constr(y_plus[var] + y_minus[var] <= big_m * lam[var])
             elif con.sign == Sign.L_EQUAL and max_q or con.sign == Sign.G_EQUAL and min_q:
                 self.add_constr(evar >= eps * lam[var])
                 self.add_constr(evar <= big_m * lam[var])
@@ -214,34 +220,23 @@ class UBModel:
 
         return new_model
 
-    def __perform_solve(self, time_for_optimum=None, gap=None):
+    def __perform_solve(self, gap=None):
         gap = 1e-3 if gap is None else gap
         gap *= 100
-        solved_q = False
-        optim_time = None
         while True:
             if self._cplex_m.solve() is not None:
-                if time_for_optimum is not None:
-                    self._cplex_m.parameters.timelimit = time_for_optimum
                 cur_gap = self._cplex_m.solve_details.mip_relative_gap
                 cur_gap = min(1, cur_gap) * 100
-                self._logger.info(f"New solution. Gap = {cur_gap:.0f}%.")
+                self._logger.info(f"New solution. Gap = {cur_gap:.0f}%. Best obj = {self._std.solution_value:.3f}")
                 if cur_gap <= gap:
                     self._logger.info(f"Given gap is reached. Gap = {cur_gap:.0f}%.")
-                    break
-                if not solved_q:
-                    optim_time = time.time()
-                    solved_q = True
-                elif time_for_optimum is not None and ((time.time() - optim_time) > time_for_optimum):
-                    self._logger.info(f"The time for optimization has expired. Gap = {cur_gap:.0f}%.")
                     break
             if self._cplex_m.solve_details.status == 'integer infeasible or unbounded':
                 break
             if self._cplex_m.solve_details.status == 'integer infeasible':
                 break
 
-
-    def solve(self, first_unique=False, gap=None, time_for_optimum=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
+    def solve(self, first_unique=False, gap=None) -> tp.Optional[tp.Dict[Var, LPFloat]]:
         self._logger.info("Starting to solve UB-Inv model.")
         m, x = self._cplex_m, self._x
         m.parameters.mip.limits.solutions = 1
@@ -252,9 +247,9 @@ class UBModel:
         while lam_l + 1 < lam_u:
             lam_m = (lam_u + lam_l) // 2
             self._logger.info(f"Next lower bound = {lam_l}, upper bound = {lam_u}, mid = {lam_m}.")
-            # con = m.add_constraint(self._lam >= lam_m)
+            con = m.add_constraint(self._lam >= lam_m)
 
-            self.__perform_solve(time_for_optimum, gap)
+            self.__perform_solve(gap)
 
             if m.solution is None:
                 self._logger.info("Solution is None.")
@@ -273,13 +268,12 @@ class UBModel:
                     lam_l = lam_m
                     if final_sol is None:
                         final_sol = sol
-            # m.remove_constraint(con)
+            m.remove_constraint(con)
 
         self._logger.info("Finished to solve UB-Inv model.")
         return final_sol
 
     def _check_unique(self, solution):
-        return True
         m = docplex.mp.model.Model(name=f'CheckUnique')
         x = dict()
         for i in self._model.vars:
