@@ -68,7 +68,7 @@ class EGRMinCostFlowModel:
             f"Model with {len(self._model.vars)} vars, {len(self._model.constraints)} constraints."
         )
 
-        self._ub_model.set_obj_priority("b", 0.01)
+        # self._ub_model.set_obj_priority("b", 0.01)
         self._ub_model.init()
         self._solution = self._ub_model.solve(
             first_unique=self._first_unique,

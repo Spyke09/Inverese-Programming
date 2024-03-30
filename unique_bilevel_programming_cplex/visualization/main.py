@@ -106,5 +106,5 @@ if __name__ == "__main__":
             plt.show()
 
 
-    year = 2019
-    visual(year, f"out/res_{year}_mode_0_2m.json", {"DZ", "RU", "NO", "AZ", "LY", "IR"})
+    year = 2020
+    visual(year, f"out/res_{year}_mode_1_4m.json", {"DZ", "RU", "NO", "AZ", "LY", "IR"})
