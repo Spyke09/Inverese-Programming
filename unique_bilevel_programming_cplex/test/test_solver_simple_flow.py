@@ -53,12 +53,12 @@ def equal_q_f_p(a, b, eps=10e-7):
 )
 def test_simple_instance_c(instance):
     model = UBModel(instance, eps=1e-2, big_m=1e2)
-    model.init_c_as_var()
+    c = model.init_c_as_var()
     model.set_x0(x0)
 
     model.init()
     answer = model.solve()
-    c = [answer[Var(f"c_{i.name}")] for i in edge]
+    c = [answer[c[i]] for i in edge]
 
     assert (-c[3] - c[0] + c[1] > 0) and (-c[4] - c[2] + c[1] > 0)
 
@@ -68,13 +68,13 @@ def test_simple_instance_c(instance):
 )
 def test_simple_instance_u(instance, u_):
     model = UBModel(instance, eps=1e-2, big_m=1e2)
-    model.init_b_as_var(u_)
+    b = model.init_b_as_var(u_)
     # model.set_x0(x0)
     model.add_constrs(i.e >= 0 for i in model.get_b().values() if isinstance(i, Var))
 
     model.init()
     answer = model.solve()
-    u = [answer[Var(f"b_{i.name}")] for i in u_]
+    u = [answer[b[i]] for i in u_]
     print(u)
     print(answer)
     assert ((u[1] == 0 or u[1] == 2) and (u[0] == u[2] == u[3] == u[4]) or (u[0] == 0 or u[3] == 0 or u[2] == 0 or u[4] == 0))
@@ -85,12 +85,12 @@ def test_simple_instance_u(instance, u_):
 )
 def test_simple_instance_l(instance, l_):
     model = UBModel(instance, eps=1e-2, big_m=1e2)
-    model.init_b_as_var(l_)
+    b = model.init_b_as_var(l_)
     model.set_x0(x0)
 
     model.init()
     answer = model.solve()
-    lb = [answer[Var(f"b_{i.name}")] for i in l_]
+    lb = [answer[b[i]] for i in l_]
 
     print(lb)
     print(answer)
@@ -102,12 +102,12 @@ def test_simple_instance_l(instance, l_):
 )
 def test_simple_instance_b(instance, b_):
     model = UBModel(instance, eps=1e-2, big_m=1e2)
-    model.init_b_as_var(b_)
+    b = model.init_b_as_var(b_)
     model.set_x0(x0)
     model.add_constrs(i.e >= 0 for i in model.get_b().values() if isinstance(i, Var))
 
     model.init()
     answer = model.solve()
-    b = [answer[Var(f"b_{i.name}")] for i in b_]
+    b = [answer[b[i]] for i in b_]
     print(b)
     assert b[0] == 3 and b[1] == 0 and b[2] == 0

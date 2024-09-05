@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing as tp
 
-from unique_bilevel_programming_cplex.src.base.common import LPEntity, VarType, LPVector, LPFloat, Integral, Sign
+from unique_bilevel_programming_cplex.src.base.common import LPEntity, VarType, LPVector, LPFloat, Integral, Sign, tpIntegral
 
 
 class Var:
@@ -18,6 +18,7 @@ class Var:
             self._type: VarType = args[1]
         else:
             raise ValueError
+        self._hash = id(self)
 
     @property
     def name(self) -> str:
@@ -32,14 +33,20 @@ class Var:
         return self._type
 
     def __hash__(self) -> int:
-        return self._name.__hash__()
+        return self._hash
 
     @property
     def e(self) -> LinExpr:
         return LinExpr(self)
 
-    def __eq__(self, other: tp.Any) -> bool:
-        return isinstance(other, Var) and self._name == other._name
+    def __eq__(self, other: tp.Any) -> Constraint:
+        return Constraint(self, Sign.EQUAL, other)
+
+    def __le__(self, other):
+        return Constraint(self, Sign.L_EQUAL, other)
+
+    def __ge__(self, other):
+        return Constraint(self, Sign.G_EQUAL, other)
 
     def __repr__(self) -> str:
         return f"Var({self._name})"
@@ -79,10 +86,10 @@ class LinExpr:
         elif len(args) == 1:
             self._init_from_other_type(*args)
 
-    def get(self, key: Var) -> LPFloat:
+    def get_coef(self, key: Var) -> LPFloat:
         return self._vars_coef[key]
 
-    def set(self, key: Var, value: LPFloat) -> None:
+    def set_coef(self, key: Var, value: LPFloat) -> None:
         if value != 0:
             self._vars_coef[key] = value
         elif key in self._vars_coef:
@@ -134,7 +141,10 @@ class LinExpr:
         vars_coefs = dict(self._vars_coef)
         for v, coef in y._vars_coef.items():
             if v in self._vars_coef:
-                vars_coefs[v] += coef
+                if vars_coefs + coef != 0:
+                    vars_coefs[v] += coef
+                else:
+                    self._vars_coef.pop(v)
             else:
                 vars_coefs[v] = coef
 
@@ -143,18 +153,20 @@ class LinExpr:
     def __sub__(self, y: LPEntity) -> LinExpr:
         return self + (y * (-1))
 
-    def __mul__(self, y: LPEntity) -> LinExpr:
-        y = LPFloat(y)
+    def __mul__(self, y: tpIntegral) -> LinExpr:
         return LinExpr({i: j * y for i, j in self._vars_coef.items()}, self.coef_0 * y)
 
-    def __truediv__(self, y: LPEntity) -> LinExpr:
+    def __truediv__(self, y: tpIntegral) -> LinExpr:
         return self * (1 / y)
 
     def __iadd__(self, y: LPEntity) -> LinExpr:
         y = LinExpr.to_expr(y)
         for v, coef in y._vars_coef.items():
             if v in self._vars_coef:
-                self._vars_coef[v] += coef
+                if self._vars_coef[v] + coef != 0:
+                    self._vars_coef[v] += coef
+                else:
+                    self._vars_coef.pop(v)
             else:
                 self._vars_coef[v] = coef
         return self
@@ -164,7 +176,7 @@ class LinExpr:
 
     def __imul__(self, y: LPEntity) -> LinExpr:
         y = LPFloat(y)
-        self._vars_coef = {i: j * y for i, j in self._vars_coef.items()}
+        self._vars_coef = {i: j * y for i, j in self._vars_coef.items() if j * y != 0}
         self.coef_0 *= y
         return self
 
@@ -227,6 +239,7 @@ class Constraint:
 
         self._name = f"C_{Constraint.constraints_counter}"
         Constraint.constraints_counter += 1
+        self._hash = id(self)
 
     @property
     def to_str(self) -> str:
@@ -256,7 +269,7 @@ class Constraint:
         return self._name
 
     def __hash__(self) -> int:
-        return self._name.__hash__()
+        return self._hash
 
     def __eq__(self, other: tp.Any) -> bool:
         return id(self) == id(other)

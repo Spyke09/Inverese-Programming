@@ -6,6 +6,7 @@ import numpy as np
 LPFloat = np.float64
 LPNan = np.nan
 Integral = (int, float, LPFloat)
+tpIntegral = tp.Union[int, float, LPFloat]
 LPVector = list
 LPVectorT = tp.List
 

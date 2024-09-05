@@ -15,9 +15,9 @@ if __name__ == "__main__":
 
 
     def egm_test_1():
-        a = 2
-        b = 0
-        for year in (2020, ):
+        a = 4
+        b = 2
+        for year in (2019, ):
             dates = [datetime(year, i, 1) for i in range(1, a + 1)]
             dates_test = dates[b + 1:]
             parser = data_parser.DataParser(dates)
@@ -32,7 +32,7 @@ if __name__ == "__main__":
                     big_m=1e8,
                     eps=1e-1,
                     price_lag=2,
-                    first_unique=False,
+                    first_unique=True,
                     gap=0.01,
                     # time_for_optimum=100
                     init_c_mode=1

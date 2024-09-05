@@ -9,7 +9,7 @@ import docplex.mp.model
 import docplex.mp.vartype
 import numpy as np
 
-from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense
+from unique_bilevel_programming_cplex.src.base.common import LPFloat, Sign, Sense, tpIntegral
 from unique_bilevel_programming_cplex.src.base.model import Model
 from unique_bilevel_programming_cplex.src.base.var_expr_con import LinExpr, Constraint, Var, VarType
 
@@ -100,13 +100,13 @@ class UBModel:
         for x, coef in x_coef:
             self._c_0[x] = coef
 
-    def set_x0(self, x_0: tp.Dict[Var, LPFloat]) -> None:
+    def set_x0(self, x_0: tp.Dict[Var, tpIntegral]) -> None:
         self._x_0 = dict(x_0)
 
-    def get_c(self) -> tp.Dict[Var, tp.Union[Var, LPFloat]]:
+    def get_c(self) -> tp.Dict[Var, tp.Union[Var, tpIntegral]]:
         return dict(self._c)
 
-    def get_b(self) -> tp.Dict[Constraint, tp.Union[Var, LPFloat]]:
+    def get_b(self) -> tp.Dict[Constraint, tp.Union[Var, tpIntegral]]:
         return dict(self._b)
 
     def add_constr(self, constr: tp.Union[Constraint, bool]) -> None:
@@ -137,7 +137,7 @@ class UBModel:
             expr = LinExpr(0)
             for con in y.keys():
                 if x_i in con.expr:
-                    expr += con.expr.get(x_i) * y[con]
+                    expr += con.expr.get_coef(x_i) * y[con]
             c = self._c[x_i] if x_i in self._c else 0
             self.add_constr(expr == c)
 
